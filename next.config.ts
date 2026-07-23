@@ -7,13 +7,21 @@ import type { NextConfig } from "next";
 // after this change (see DECISIONS.md for the before/after).
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
+// `next dev` (Turbopack/React dev tooling) needs `eval()` for source-map
+// reconstruction and RSC dev-mode debugging — Next.js explicitly warns
+// about this in the console if a CSP blocks it. Production never needs or
+// gets 'unsafe-eval'; the ZAP re-scan documented in DECISIONS.md ran
+// against a production build, so this dev-only allowance doesn't change
+// what was actually verified.
+const isDev = process.env.NODE_ENV === "development";
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   // Next.js injects hydration/runtime scripts inline; a nonce-based CSP
   // would remove the need for 'unsafe-inline' here but is a larger change
   // than this pass covers — tracked as a documented follow-up, not silently
   // dropped.
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
