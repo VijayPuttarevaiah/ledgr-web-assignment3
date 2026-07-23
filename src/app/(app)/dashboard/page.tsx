@@ -112,7 +112,7 @@ export default async function DashboardPage() {
     .slice(0, 4);
 
   return (
-    <div className="p-7">
+    <div className="p-4 sm:p-7">
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardLabel>Net balance</CardLabel>
@@ -206,12 +206,12 @@ export default async function DashboardPage() {
       {balances.length > 0 && (
         <Card>
           <CardLabel>Open balances</CardLabel>
-          <div className="flex flex-wrap gap-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {balances.slice(0, 4).map((b, i) => (
               <Link
                 key={i}
                 href="/split"
-                className="flex-1 min-w-[160px] rounded-[10px] border border-border bg-surface-2 p-3.5 text-left hover:border-gold/40"
+                className="rounded-[10px] border border-border bg-surface-2 p-3.5 text-left hover:border-gold/40"
               >
                 <div className="mb-2 text-[13.5px] font-bold">{groupNameById.get(b.groupId) ?? "Group"}</div>
                 <MoneyText cents={b.netCents} direction={b.netCents > 0 ? "in" : "out"} signed className="font-bold" />

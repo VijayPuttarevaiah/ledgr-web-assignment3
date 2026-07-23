@@ -89,8 +89,8 @@ export function SettingsClient({
   }
 
   return (
-    <div className="flex gap-7 p-7">
-      <div className="w-[180px] shrink-0">
+    <div className="flex flex-col gap-5 p-4 sm:p-7 md:flex-row md:gap-7">
+      <div className="w-full shrink-0 md:w-[180px]">
         {TABS.map((t) => (
           <button
             key={t}

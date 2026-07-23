@@ -57,8 +57,8 @@ export default async function LedgerPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="p-7">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="p-4 sm:p-7">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="text-[22px] font-extrabold">Personal Ledger</div>
         <a
           href={`/api/transactions/export?filter=${filter}`}
@@ -68,13 +68,13 @@ export default async function LedgerPage({
         </a>
       </div>
 
-      <div className="mb-4 flex gap-1.5 border-b border-border">
+      <div className="no-scrollbar mb-4 flex gap-1.5 overflow-x-auto border-b border-border">
         {FILTERS.map((f) => (
           <Link
             key={f.key}
             href={`/ledger?filter=${f.key}`}
             className={
-              "border-b-2 px-3.5 py-2.5 text-[13px] font-semibold " +
+              "border-b-2 px-3.5 py-2.5 text-[13px] font-semibold whitespace-nowrap " +
               (filter === f.key ? "border-gold text-gold" : "border-transparent text-text-dim hover:text-text")
             }
           >
@@ -83,7 +83,7 @@ export default async function LedgerPage({
         ))}
       </div>
 
-      <div className="mb-4 flex gap-8">
+      <div className="mb-4 flex flex-wrap gap-4 sm:gap-8">
         <SummaryStat label="Income" value={formatCentsSigned(income)} className="text-teal" />
         <SummaryStat label="Expenses" value={formatCentsSigned(-expenses)} className="text-coral" />
         <SummaryStat label="Net" value={formatCentsSigned(income - expenses)} />

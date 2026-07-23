@@ -12,6 +12,9 @@ import { aiClientFlags } from "@/lib/ai/client-flags";
 
 // §10 perf pass — see the matching note in dashboard/page.tsx.
 const CashFlowChart = dynamic(() => import("@/components/analytics/cash-flow-chart").then((m) => m.CashFlowChart));
+const CategoryPieChart = dynamic(() =>
+  import("@/components/analytics/category-pie-chart").then((m) => m.CategoryPieChart)
+);
 
 const RANGES: AnalyticsRange[] = ["1D", "1W", "1M", "3M", "1Y", "All"];
 
@@ -47,7 +50,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   ];
 
   return (
-    <div className="p-7">
+    <div className="p-4 sm:p-7">
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
         {RANGES.map((r) => (
           <Link
@@ -87,15 +90,22 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           {categoryBreakdown.length === 0 ? (
             <div className="text-sm text-text-dim">No spending in this period yet.</div>
           ) : (
-            categoryBreakdown.slice(0, 6).map((c) => (
-              <div key={c.id} className="mb-2.5">
-                <div className="mb-1 flex justify-between text-[12.5px]">
-                  <span>{c.name}</span>
-                  <span className="text-text-dim">{c.pct}%</span>
-                </div>
-                <Bar2 pct={c.pct} color={c.color} thin />
+            <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-4">
+              <div className="w-full max-w-[220px] shrink-0">
+                <CategoryPieChart data={categoryBreakdown.slice(0, 6)} />
               </div>
-            ))
+              <div className="w-full min-w-0">
+                {categoryBreakdown.slice(0, 6).map((c) => (
+                  <div key={c.id} className="mb-2 flex items-center justify-between gap-2 text-[12.5px]">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: c.color }} />
+                      <span className="truncate">{c.name}</span>
+                    </span>
+                    <span className="shrink-0 text-text-dim">{c.pct}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </Card>
       </div>

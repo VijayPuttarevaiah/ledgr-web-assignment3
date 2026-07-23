@@ -54,7 +54,7 @@ export function SplitStudioClient({
   }
 
   return (
-    <div className="flex gap-6 p-7">
+    <div className="flex flex-col gap-5 p-4 sm:p-7 lg:flex-row lg:gap-6">
       <GroupSidebar
         groups={groups}
         selectedGroupId={selectedGroupId}

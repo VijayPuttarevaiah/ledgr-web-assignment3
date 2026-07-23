@@ -15,7 +15,7 @@ export function GroupSidebar({
   onNewGroup: () => void;
 }) {
   return (
-    <div className="w-[220px] shrink-0">
+    <div className="w-full shrink-0 lg:w-[220px]">
       <div className="mb-2.5 text-[11px] font-bold tracking-wide text-text-faint uppercase">Groups</div>
       <button
         onClick={onNewGroup}

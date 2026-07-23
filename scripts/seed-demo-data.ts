@@ -100,6 +100,17 @@ async function main() {
   console.log(`  Jordan (roommate):      ${jordan.email}`);
   console.log(`  Sam (roommate):         ${sam.email}`);
 
+  // getOrCreateUser is idempotent, but nothing below it was — re-running
+  // this script duplicated transactions, budgets, and the demo group on
+  // every run. Wipe this demo user's previously-seeded data first so the
+  // script can be re-run safely, matching what the README already claims.
+  console.log("Clearing any previously-seeded demo data...");
+  const demoUserIds = [maya.id, jordan.id, sam.id];
+  await admin.from("transactions").delete().in("user_id", demoUserIds);
+  await admin.from("recurring_rules").delete().in("user_id", demoUserIds);
+  await admin.from("budgets").delete().in("user_id", demoUserIds);
+  await admin.from("groups").delete().eq("created_by", maya.id).eq("name", "Apartment 4B");
+
   const catIds = {
     groceries: await categoryIdByName("Groceries"),
     dining: await categoryIdByName("Dining"),

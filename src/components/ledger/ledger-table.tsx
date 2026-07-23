@@ -135,8 +135,8 @@ export function LedgerTable({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-border">
-        <div className="grid grid-cols-[28px_80px_1fr_130px_120px_100px_70px] items-center gap-2 border-b border-border px-4 py-2.5 text-[11px] tracking-wide text-text-faint uppercase">
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="grid min-w-[720px] grid-cols-[28px_80px_1fr_130px_120px_100px_70px] items-center gap-2 border-b border-border px-4 py-2.5 text-[11px] tracking-wide text-text-faint uppercase">
           <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all transactions" />
           <div>Date</div>
           <div>Description</div>
@@ -219,7 +219,7 @@ function LedgerRow({
 
   if (editing) {
     return (
-      <div className="grid grid-cols-[28px_80px_1fr_130px_120px_100px_70px] items-center gap-2 border-b border-border bg-surface-2/40 px-4 py-2">
+      <div className="grid min-w-[720px] grid-cols-[28px_80px_1fr_130px_120px_100px_70px] items-center gap-2 border-b border-border bg-surface-2/40 px-4 py-2">
         <div />
         <div className="text-text-dim">{t.occurred_on}</div>
         <input
@@ -254,7 +254,7 @@ function LedgerRow({
   }
 
   return (
-    <div className="grid grid-cols-[28px_80px_1fr_130px_120px_100px_70px] items-center gap-2 border-b border-border px-4 py-3 text-[13.5px] last:border-b-0">
+    <div className="grid min-w-[720px] grid-cols-[28px_80px_1fr_130px_120px_100px_70px] items-center gap-2 border-b border-border px-4 py-3 text-[13.5px] last:border-b-0">
       <input type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select ${t.description}`} />
       <div className="text-text-dim">{t.occurred_on}</div>
       <div>

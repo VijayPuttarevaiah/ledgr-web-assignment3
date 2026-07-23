@@ -198,8 +198,8 @@ export function GroupDetailView({
         </div>
       </Card>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-border">
-        <div className="grid grid-cols-[1.4fr_1fr_1.3fr_90px_100px] gap-2 border-b border-border px-4 py-2.5 text-[11px] text-text-faint uppercase">
+      <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div className="grid min-w-[560px] grid-cols-[1.4fr_1fr_1.3fr_90px_100px] gap-2 border-b border-border px-4 py-2.5 text-[11px] text-text-faint uppercase">
           <div>Expense</div>
           <div>Paid by</div>
           <div>Split mode</div>
@@ -217,7 +217,7 @@ export function GroupDetailView({
           detail.expenses.map((e) => (
             <div
               key={e.id}
-              className="grid grid-cols-[1.4fr_1fr_1.3fr_90px_100px] items-center gap-2 border-b border-border px-4 py-3 text-[13.5px] last:border-b-0"
+              className="grid min-w-[560px] grid-cols-[1.4fr_1fr_1.3fr_90px_100px] items-center gap-2 border-b border-border px-4 py-3 text-[13.5px] last:border-b-0"
             >
               <div>
                 <button
