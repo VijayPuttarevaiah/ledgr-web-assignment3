@@ -1,14 +1,17 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { startOfMonth, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { getAnalyticsSummary, type AnalyticsRange } from "@/lib/analytics";
 import { Card, CardLabel } from "@/components/ui/card";
 import { Bar2 } from "@/components/dashboard/bar2";
 import { formatCents } from "@/lib/money";
-import { CashFlowChart } from "@/components/analytics/cash-flow-chart";
 import { AiNarrativeCard } from "@/components/analytics/ai-narrative-card";
 import { BudgetManager } from "@/components/analytics/budget-manager";
 import { aiClientFlags } from "@/lib/ai/client-flags";
+
+// §10 perf pass — see the matching note in dashboard/page.tsx.
+const CashFlowChart = dynamic(() => import("@/components/analytics/cash-flow-chart").then((m) => m.CashFlowChart));
 
 const RANGES: AnalyticsRange[] = ["1D", "1W", "1M", "3M", "1Y", "All"];
 

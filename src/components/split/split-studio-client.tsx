@@ -2,14 +2,26 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import type { GroupDetail } from "@/lib/groups";
 import { GroupSidebar } from "./group-sidebar";
 import { GroupDetailView } from "./group-detail";
 import { NewGroupDialog } from "./new-group-dialog";
 import { AddExpensePanel } from "./add-expense-panel";
-import { ReceiptEditor } from "./receipt-editor";
-import { Users } from "lucide-react";
+import { Users, Loader2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+
+// §10 perf pass: the Receipt Editor (itemised split UI + live preview math)
+// is only needed once a user actually opens it, not on every Split Studio
+// page load — deferred out of the initial route bundle. See DECISIONS.md.
+const ReceiptEditor = dynamic(() => import("./receipt-editor").then((m) => m.ReceiptEditor), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/70">
+      <Loader2 className="animate-spin-slow text-gold" size={28} />
+    </div>
+  ),
+});
 
 export interface GroupSummary {
   id: string;

@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /dashboard
+Disallow: /ledger
+Disallow: /split
+Disallow: /analytics
+Disallow: /settings
+Disallow: /api/
+Disallow: /invite/
+Allow: /sign-in
+Allow: /sign-up

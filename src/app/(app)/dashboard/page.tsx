@@ -1,4 +1,5 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { startOfMonth, subMonths, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { balancesForUser } from "@/lib/balances";
@@ -6,8 +7,14 @@ import { effectiveBudgetCents } from "@/lib/budget-rollover";
 import { Card, CardLabel } from "@/components/ui/card";
 import { MoneyText } from "@/components/ui/money-text";
 import { formatCents, formatCentsSigned } from "@/lib/money";
-import { SpendingTrendChart } from "@/components/dashboard/spending-trend-chart";
 import { Bar2 } from "@/components/dashboard/bar2";
+
+// §10 perf pass: recharts (~80KB gzipped) is code-split into its own chunk,
+// fetched only once the dashboard actually renders, instead of shipping in
+// every route's shared bundle. See DECISIONS.md for the measured before/after.
+const SpendingTrendChart = dynamic(() =>
+  import("@/components/dashboard/spending-trend-chart").then((m) => m.SpendingTrendChart)
+);
 
 export default async function DashboardPage() {
   const supabase = await createClient();
