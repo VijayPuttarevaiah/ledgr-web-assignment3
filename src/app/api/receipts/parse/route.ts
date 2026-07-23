@@ -5,6 +5,7 @@ import { resolveAIFeature, disabledEnvelope } from "@/lib/ai/kill-switch";
 import { getMonthlySpendUsd, logAIUsage } from "@/lib/ai/usage";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { buildReceiptPath, RECEIPTS_BUCKET } from "@/lib/supabase/storage-shared";
+import { withOneRetry } from "@/lib/ai/retry-once";
 import { logger } from "@/lib/logger";
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -59,35 +60,38 @@ export async function POST(request: Request) {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const categoryNames = (categories ?? []).map((c) => c.name);
-    const message = await anthropic.messages.create({
-      model,
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: (file.type || "image/jpeg") as "image/jpeg", data: base64 } },
-            {
-              type: "text",
-              text: `Read this receipt. Respond with strict JSON only, no prose: {"merchant": string, "total_amount_cents": integer, "occurred_on": "YYYY-MM-DD", "suggested_category": one of [${categoryNames.join(", ")}] or null, "line_items": [{"item_name": string, "quantity": number, "unit_price_cents": integer}]}. If you cannot read the receipt clearly, respond with {"error": "unreadable"}.`,
-            },
-          ],
-        },
-      ],
-    });
-
-    const textBlock = message.content.find((b) => b.type === "text");
-    const raw = textBlock && "text" in textBlock ? textBlock.text : "{}";
     let parsed: ParsedReceipt | { error: string };
     try {
+      // §11: retry once automatically before surfacing the manual-entry fallback.
+      const message = await withOneRetry("ocr", () =>
+        anthropic.messages.create({
+          model,
+          max_tokens: 1024,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "image", source: { type: "base64", media_type: (file.type || "image/jpeg") as "image/jpeg", data: base64 } },
+                {
+                  type: "text",
+                  text: `Read this receipt. Respond with strict JSON only, no prose: {"merchant": string, "total_amount_cents": integer, "occurred_on": "YYYY-MM-DD", "suggested_category": one of [${categoryNames.join(", ")}] or null, "line_items": [{"item_name": string, "quantity": number, "unit_price_cents": integer}]}. If you cannot read the receipt clearly, respond with {"error": "unreadable"}.`,
+                },
+              ],
+            },
+          ],
+        })
+      );
+      const textBlock = message.content.find((b) => b.type === "text");
+      const raw = textBlock && "text" in textBlock ? textBlock.text : "{}";
       parsed = JSON.parse(raw);
-    } catch {
-      logger.warn({ route: "receipts/parse" }, "Receipt OCR: model response was not valid JSON");
       await logAIUsage(user.id, "ocr", model, 0.003);
+    } catch (aiError) {
+      logger.warn(
+        { route: "receipts/parse", err: aiError instanceof Error ? aiError.message : String(aiError) },
+        "Receipt OCR failed after one retry — degrading to manual entry"
+      );
       return NextResponse.json({ enabled: true, success: false, receipt_image_path: path });
     }
-
-    await logAIUsage(user.id, "ocr", model, 0.003);
 
     if ("error" in parsed || !parsed.total_amount_cents) {
       return NextResponse.json({ enabled: true, success: false, receipt_image_path: path });

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus, Receipt as ReceiptIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { UserPlus, Receipt as ReceiptIcon, Users, X, LogOut } from "lucide-react";
 import type { GroupDetail } from "@/lib/groups";
 import { Card, CardLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MoneyText } from "@/components/ui/money-text";
+import { Avatar } from "@/components/ui/avatar";
 import { formatCents } from "@/lib/money";
 import { useToast } from "@/components/providers/toast-context";
 import { useConfirm } from "@/components/providers/confirm-context";
@@ -20,20 +22,51 @@ const SPLIT_MODE_LABEL: Record<string, string> = {
 
 export function GroupDetailView({
   detail,
+  currentUserId,
   onAddExpense,
   onOpenReceipt,
   onChanged,
 }: {
   detail: GroupDetail;
+  currentUserId: string;
   onAddExpense: () => void;
   onOpenReceipt: (expenseId: string) => void;
   onChanged: () => void;
 }) {
+  const router = useRouter();
   const { toast } = useToast();
   const confirm = useConfirm();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
   const nameById = new Map(detail.members.map((m) => [m.user_id, m.full_name]));
+  const isOwner = detail.members.some((m) => m.user_id === currentUserId && m.role === "owner");
+
+  async function removeMember(memberId: string, isSelf: boolean) {
+    const memberName = isSelf ? "the group" : (nameById.get(memberId) ?? "this member");
+    const ok = await confirm({
+      title: isSelf ? "Leave this group?" : `Remove ${memberName}?`,
+      body: isSelf
+        ? "You'll lose access to this group's expenses and balances. Existing history stays intact for everyone else."
+        : `${memberName} will lose access to this group. Their past confirmed expenses stay in the group's history.`,
+      confirmLabel: isSelf ? "Leave group" : "Remove",
+      tone: "danger",
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/groups/${detail.group.id}/members/${memberId}`, { method: "DELETE" });
+    if (res.ok) {
+      toast(isSelf ? "You left the group." : `${memberName} was removed.`);
+      if (isSelf) {
+        router.push("/split");
+        router.refresh();
+      } else {
+        onChanged();
+      }
+    } else {
+      const body = await res.json();
+      toast(body.error?.message ?? "Couldn't do that. Try again.", { tone: "error" });
+    }
+  }
 
   async function settleUp(counterpartyId: string, cents: number) {
     const counterpartyName = nameById.get(counterpartyId) ?? "this person";
@@ -72,14 +105,65 @@ export function GroupDetailView({
   return (
     <div>
       <div className="mb-0.5 text-[22px] font-extrabold">{detail.group.name}</div>
-      <div className="mb-4 flex items-center gap-3 text-[12.5px] text-text-faint">
+      <div className="relative mb-4 flex items-center gap-3 text-[12.5px] text-text-faint">
+        <button onClick={() => setMembersOpen((v) => !v)} className="flex items-center gap-1 hover:text-text-dim">
+          <Users size={12} />
+          {detail.members.length} member{detail.members.length === 1 ? "" : "s"}
+        </button>
         <span>
-          {detail.members.length} member{detail.members.length === 1 ? "" : "s"} · {detail.expenses.length} expense
-          {detail.expenses.length === 1 ? "" : "s"}
+          · {detail.expenses.length} expense{detail.expenses.length === 1 ? "" : "s"}
         </span>
         <button onClick={() => setInviteOpen(true)} className="flex items-center gap-1 text-gold hover:underline">
           <UserPlus size={12} /> Invite
         </button>
+
+        {membersOpen && (
+          <div className="absolute top-full left-0 z-20 mt-2 w-72 rounded-xl border border-border bg-surface p-3 shadow-2xl">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11px] font-bold tracking-wide text-text-faint uppercase">Members</span>
+              <button onClick={() => setMembersOpen(false)} aria-label="Close" className="text-text-faint hover:text-text-dim">
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex flex-col gap-1">
+              {detail.members.map((m) => {
+                const self = m.user_id === currentUserId;
+                return (
+                  <div key={m.user_id} className="flex items-center justify-between rounded-lg px-1.5 py-1.5 hover:bg-surface-2">
+                    <div className="flex items-center gap-2">
+                      <Avatar userId={m.user_id} name={m.full_name} size={22} />
+                      <div>
+                        <div className="text-[13px] font-semibold text-text">{self ? "You" : m.full_name}</div>
+                        <div className="text-[10.5px] text-text-faint capitalize">{m.role}</div>
+                      </div>
+                    </div>
+                    {self ? (
+                      <button
+                        onClick={() => removeMember(m.user_id, true)}
+                        title="Leave group"
+                        aria-label="Leave group"
+                        className="text-text-faint hover:text-coral"
+                      >
+                        <LogOut size={14} />
+                      </button>
+                    ) : (
+                      isOwner && (
+                        <button
+                          onClick={() => removeMember(m.user_id, false)}
+                          title={`Remove ${m.full_name}`}
+                          aria-label={`Remove ${m.full_name}`}
+                          className="text-text-faint hover:text-coral"
+                        >
+                          <X size={14} />
+                        </button>
+                      )
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <Card>

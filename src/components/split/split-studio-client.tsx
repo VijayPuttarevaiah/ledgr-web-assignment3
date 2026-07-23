@@ -79,6 +79,7 @@ export function SplitStudioClient({
         ) : (
           <GroupDetailView
             detail={detail}
+            currentUserId={currentUserId}
             onAddExpense={() => setAddExpenseOpen(true)}
             onOpenReceipt={(expenseId) => setReceiptEditorExpenseId(expenseId)}
             onChanged={refresh}

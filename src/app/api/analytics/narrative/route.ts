@@ -6,6 +6,8 @@ import { getMonthlySpendUsd, logAIUsage } from "@/lib/ai/usage";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getAnalyticsSummary } from "@/lib/analytics";
 import { formatCents } from "@/lib/money";
+import { withOneRetry } from "@/lib/ai/retry-once";
+import { logger } from "@/lib/logger";
 
 /** [AI] §7.6 — plain-language monthly summary, naming real numbers from the user's own data, never generic filler. */
 export async function POST() {
@@ -45,27 +47,32 @@ export async function POST() {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    const message = await anthropic.messages.create({
-      model,
-      max_tokens: 300,
-      messages: [
-        {
-          role: "user",
-          content: `You are writing 2-3 short, independent, plain-language insights for a personal finance app called LEDGR's monthly summary. Use ONLY these real numbers from the user's data — never invent figures, never use vague filler like "consider reviewing your spending." If a category is over budget, name it specifically and give one concrete, practical suggestion tied to that category, in its own insight. Be direct and specific, second person ("you"). Respond with strict JSON only: {"insights": ["...", "..."]}\n\nData: ${facts}`,
-        },
-      ],
-    });
-
-    const textBlock = message.content.find((b) => b.type === "text");
     let insights: string[] = [];
     try {
+      // §11: retry once automatically — a missing narrative just means the
+      // card renders nothing (§4.4), never a broken Analytics page.
+      const message = await withOneRetry("narrative", () =>
+        anthropic.messages.create({
+          model,
+          max_tokens: 300,
+          messages: [
+            {
+              role: "user",
+              content: `You are writing 2-3 short, independent, plain-language insights for a personal finance app called LEDGR's monthly summary. Use ONLY these real numbers from the user's data — never invent figures, never use vague filler like "consider reviewing your spending." If a category is over budget, name it specifically and give one concrete, practical suggestion tied to that category, in its own insight. Be direct and specific, second person ("you"). Respond with strict JSON only: {"insights": ["...", "..."]}\n\nData: ${facts}`,
+            },
+          ],
+        })
+      );
+      const textBlock = message.content.find((b) => b.type === "text");
       const parsed = JSON.parse(textBlock && "text" in textBlock ? textBlock.text : "{}");
       if (Array.isArray(parsed.insights)) insights = parsed.insights.filter((s: unknown) => typeof s === "string");
-    } catch {
-      // leave insights empty; the card will just show nothing rather than break
+      await logAIUsage(user.id, "narrative", model, 0.01);
+    } catch (aiError) {
+      logger.warn(
+        { route: "analytics/narrative", err: aiError instanceof Error ? aiError.message : String(aiError) },
+        "Narrative generation failed after one retry — card will render no insights"
+      );
     }
-
-    await logAIUsage(user.id, "narrative", model, 0.01);
 
     return NextResponse.json({
       enabled: true,

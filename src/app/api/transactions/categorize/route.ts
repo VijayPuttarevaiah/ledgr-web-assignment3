@@ -5,6 +5,7 @@ import { jsonError, Errors } from "@/lib/api/errors";
 import { resolveAIFeature, disabledEnvelope } from "@/lib/ai/kill-switch";
 import { getMonthlySpendUsd, logAIUsage } from "@/lib/ai/usage";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { withOneRetry } from "@/lib/ai/retry-once";
 import { logger } from "@/lib/logger";
 
 const bodySchema = z.object({
@@ -40,33 +41,36 @@ export async function POST(request: Request) {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const categoryNames = categories.map((c) => c.name);
-    const message = await anthropic.messages.create({
-      model,
-      max_tokens: 50,
-      messages: [
-        {
-          role: "user",
-          content: `Categorize this personal-finance transaction into exactly one of these categories: ${categoryNames.join(", ")}.\nDescription: "${description}"\nAmount: $${(amount_cents / 100).toFixed(2)}\nRespond with strict JSON only: {"category": "<one of the categories above>", "confidence": <integer 0-100>}`,
-        },
-      ],
-    });
-
-    const textBlock = message.content.find((b) => b.type === "text");
     let categoryName: string | null = null;
     let confidence = 0;
     try {
+      // §11: retry once automatically before falling back to manual entry —
+      // a category suggestion is a nicety, never worth blocking the save on.
+      const message = await withOneRetry("categorization", () =>
+        anthropic.messages.create({
+          model,
+          max_tokens: 50,
+          messages: [
+            {
+              role: "user",
+              content: `Categorize this personal-finance transaction into exactly one of these categories: ${categoryNames.join(", ")}.\nDescription: "${description}"\nAmount: $${(amount_cents / 100).toFixed(2)}\nRespond with strict JSON only: {"category": "<one of the categories above>", "confidence": <integer 0-100>}`,
+            },
+          ],
+        })
+      );
+      const textBlock = message.content.find((b) => b.type === "text");
       const parsed = JSON.parse(textBlock && "text" in textBlock ? textBlock.text : "{}");
       categoryName = typeof parsed.category === "string" ? parsed.category : null;
       confidence = typeof parsed.confidence === "number" ? Math.max(0, Math.min(100, Math.round(parsed.confidence))) : 0;
-    } catch {
-      logger.warn({ route: "categorize" }, "Failed to parse Claude categorization response as JSON");
+      await logAIUsage(user.id, "categorization", model, 0.001);
+    } catch (aiError) {
+      logger.warn(
+        { route: "categorize", err: aiError instanceof Error ? aiError.message : String(aiError) },
+        "Categorization failed after one retry — degrading to no suggestion, manual entry still works"
+      );
     }
 
     const match = categories.find((c) => c.name.toLowerCase() === categoryName?.toLowerCase());
-
-    // Anthropic Haiku-class pricing is fractions of a cent per call; a small flat
-    // estimate keeps the spend-cap check meaningful without a token-accounting pass.
-    await logAIUsage(user.id, "categorization", model, 0.001);
 
     return NextResponse.json({
       enabled: true,
