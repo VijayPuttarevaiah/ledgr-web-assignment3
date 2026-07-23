@@ -115,45 +115,40 @@ export function SettingsClient({
             <div className="mb-4 text-xl font-extrabold">{tab}</div>
             <Card>
               {tab === "Profile" && (
-                <div className="grid grid-cols-2 gap-3.5">
-                  <div className="col-span-2">
-                    <FieldLabel htmlFor="fullName">Full name</FieldLabel>
+                <div>
+                  <SettingsRow label="Full name" description="Shown to people you split expenses with.">
                     <Input id="fullName" value={form.full_name} onChange={(e) => set("full_name", e.target.value)} />
-                  </div>
-                  <div className="col-span-2">
-                    <FieldLabel htmlFor="email">Email</FieldLabel>
+                  </SettingsRow>
+                  <SettingsRow label="Email" description="Used to sign in — contact support to change it.">
                     <Input id="email" value={email} disabled />
-                  </div>
+                  </SettingsRow>
                 </div>
               )}
 
               {tab === "Preferences" && (
-                <div className="grid grid-cols-2 gap-3.5">
-                  <div>
-                    <FieldLabel htmlFor="currency">Default currency</FieldLabel>
+                <div>
+                  <SettingsRow label="Default currency" description="Used when formatting amounts across LEDGR.">
                     <Select id="currency" value={form.default_currency} onChange={(e) => set("default_currency", e.target.value)}>
                       <option value="CAD">CAD</option>
                       <option value="USD">USD</option>
                       <option value="EUR">EUR</option>
                       <option value="GBP">GBP</option>
                     </Select>
-                  </div>
-                  <div>
-                    <FieldLabel htmlFor="dateFormat">Date format</FieldLabel>
+                  </SettingsRow>
+                  <SettingsRow label="Date format" description="How dates are displayed throughout the app.">
                     <Select id="dateFormat" value={form.date_format} onChange={(e) => set("date_format", e.target.value)}>
                       <option value="MMM D, YYYY">MMM D, YYYY</option>
                       <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                       <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                     </Select>
-                  </div>
-                  <div className="col-span-2">
-                    <FieldLabel htmlFor="paymentMethod">Default payment method</FieldLabel>
+                  </SettingsRow>
+                  <SettingsRow label="Default payment method" description="Pre-filled when you add a new entry.">
                     <Input
                       id="paymentMethod"
                       value={form.default_payment_method}
                       onChange={(e) => set("default_payment_method", e.target.value)}
                     />
-                  </div>
+                  </SettingsRow>
                 </div>
               )}
 
@@ -224,6 +219,26 @@ export function SettingsClient({
           <DangerZone />
         )}
       </div>
+    </div>
+  );
+}
+
+function SettingsRow({
+  label,
+  description,
+  children,
+}: {
+  label: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2 border-b border-border py-4 first:pt-0 last:border-b-0 last:pb-0 sm:flex-row sm:items-center sm:gap-6">
+      <div className="sm:w-56 sm:shrink-0">
+        <div className="text-[13.5px] font-semibold text-text">{label}</div>
+        {description && <div className="mt-0.5 text-xs text-text-faint">{description}</div>}
+      </div>
+      <div className="w-full sm:max-w-xs">{children}</div>
     </div>
   );
 }
