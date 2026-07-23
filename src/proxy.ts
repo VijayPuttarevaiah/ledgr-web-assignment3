@@ -41,6 +41,16 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = pathname === "/" || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
+  // API routes must never be redirected to an HTML page — each Route
+  // Handler enforces its own auth via requireUser() and returns a proper
+  // 401 JSON response. Redirecting here would turn "unauthenticated" into
+  // a misleading 200 (the sign-in page's HTML), which is exactly the kind
+  // of proxy-vs-route-handler mismatch §9's defense-in-depth note warns
+  // against — caught by an integration test asserting the real status code.
+  if (pathname.startsWith("/api/")) {
+    return response;
+  }
+
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
@@ -59,5 +69,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/cron|api/health|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // `api/` is excluded here (not just in the function body) so Proxy isn't
+  // invoked at all for API traffic — a small latency win in addition to
+  // the correctness fix above. The whole `_next/` tree is excluded, not
+  // just `_next/static|_next/image` — `_next/webpack-hmr` (the dev-mode
+  // HMR websocket upgrade) needs the same exclusion or Proxy's async
+  // Supabase call intercepts the upgrade and breaks dev-mode hydration.
+  matcher: ["/((?!api/|_next/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };
