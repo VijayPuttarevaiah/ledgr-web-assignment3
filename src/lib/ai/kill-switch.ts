@@ -23,13 +23,20 @@ function isTrue(value: string | undefined): boolean {
   return value === "true";
 }
 
+// DECISIONS.md #OCR-vendor: OCR is implemented with Claude's native vision
+// input rather than Google Cloud Vision (the guide's §3 explicitly invites
+// this consolidation). GOOGLE_CLOUD_VISION_API_KEY stays in the env table
+// as a documented, supported alternative — resolveAIFeatureFlags accepts
+// either credential so a deployment can switch providers without touching
+// this module.
 function hasRequiredSecret(
   feature: AIFeature,
   env: NodeJS.ProcessEnv
 ): { ok: true } | { ok: false; missingVar: string } {
   if (feature === "ocr") {
-    const key = env.GOOGLE_CLOUD_VISION_API_KEY;
-    return key && key.trim().length > 0 ? { ok: true } : { ok: false, missingVar: "GOOGLE_CLOUD_VISION_API_KEY" };
+    const hasClaude = Boolean(env.ANTHROPIC_API_KEY && env.ANTHROPIC_API_KEY.trim());
+    const hasVision = Boolean(env.GOOGLE_CLOUD_VISION_API_KEY && env.GOOGLE_CLOUD_VISION_API_KEY.trim());
+    return hasClaude || hasVision ? { ok: true } : { ok: false, missingVar: "ANTHROPIC_API_KEY" };
   }
   const key = env.ANTHROPIC_API_KEY;
   return key && key.trim().length > 0 ? { ok: true } : { ok: false, missingVar: "ANTHROPIC_API_KEY" };
