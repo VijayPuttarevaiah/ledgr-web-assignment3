@@ -49,7 +49,8 @@ export const createGroupExpenseSchema = z
   .refine(
     (data) => {
       if (data.split_mode === "equal") return (data.participant_ids?.length ?? 0) >= 1;
-      if (data.split_mode === "itemised") return (data.items?.length ?? 0) >= 1;
+      // itemised: line items are added afterward in the Receipt Editor, not at creation.
+      if (data.split_mode === "itemised") return true;
       if (data.split_mode === "exact") return (data.exact_shares?.length ?? 0) >= 1;
       if (data.split_mode === "weighted") return (data.weighted_shares?.length ?? 0) >= 1;
       return false;
