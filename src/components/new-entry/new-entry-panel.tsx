@@ -283,7 +283,16 @@ export function NewEntryPanel({
         {aiClientFlags.ocr ? (
           <div
             data-testid="receipt-ocr-dropzone"
+            role="button"
+            tabIndex={0}
+            aria-label="Upload a receipt photo to auto-fill this entry"
             onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
             className={
               "mt-2 cursor-pointer rounded-[10px] border border-dashed bg-surface-2 p-5 text-center " +
               (ocrState === "failed" ? "border-coral" : "border-border")

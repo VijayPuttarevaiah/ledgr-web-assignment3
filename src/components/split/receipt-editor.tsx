@@ -292,7 +292,16 @@ export function ReceiptEditor({
                   <div className="text-text-dim">{it.quantity}</div>
                   <div className="text-text-dim">{formatCents(it.unit_price_cents)}</div>
                   <div
+                    role={confirmed ? undefined : "button"}
+                    tabIndex={confirmed ? undefined : 0}
+                    aria-label={confirmed ? undefined : `Toggle ${nameById.get(activeMemberId) ?? "selected person"} on ${it.item_name}`}
                     onClick={() => toggleAssign(it.id, activeMemberId)}
+                    onKeyDown={(e) => {
+                      if (!confirmed && (e.key === "Enter" || e.key === " ")) {
+                        e.preventDefault();
+                        toggleAssign(it.id, activeMemberId);
+                      }
+                    }}
                     className={`flex gap-1 ${confirmed ? "" : "cursor-pointer"}`}
                   >
                     {it.assigned_user_ids.length === 0 ? (
@@ -337,7 +346,16 @@ export function ReceiptEditor({
                 {aiClientFlags.ocr ? (
                   <div
                     data-testid="receipt-ocr-dropzone"
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Upload a receipt photo to auto-fill line items"
                     onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                      }
+                    }}
                     className="cursor-pointer rounded-[10px] border border-dashed border-border bg-surface-2 p-3.5 text-center text-xs"
                   >
                     {ocrState === "scanning" ? (
