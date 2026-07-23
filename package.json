@@ -13,7 +13,8 @@
     "test:integration": "playwright test tests/integration",
     "test:e2e": "playwright test tests/e2e",
     "test:playwright": "playwright test",
-    "test:all": "npm run test && npm run test:playwright"
+    "test:all": "npm run test && npm run test:playwright",
+    "seed:demo": "tsx scripts/seed-demo-data.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.113.0",
@@ -52,6 +53,7 @@
     "jsdom": "^29.1.1",
     "prettier": "^3.9.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }

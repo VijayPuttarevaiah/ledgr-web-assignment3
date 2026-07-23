@@ -160,6 +160,47 @@ Playwright screenshot during Split Studio testing. Fixed everywhere this
 pattern appeared (`lib/groups.ts`, the PDF route) with an explicit two-step
 fetch-and-join in TypeScript instead of relying on the embed.
 
+**`profiles` RLS was self-only — a fourth real bug, and the most
+consequential one for the demo experience.** `profiles_select_own` allows
+`id = auth.uid()` and nothing else, which means the two-step fetch-and-join
+fix above (querying `profiles` for a list of `group_members.user_id`
+values) silently returned *zero rows* for every member who wasn't the
+current user — RLS filters denied rows out rather than erroring, so this
+failed quietly exactly like the embed bug did. Every fellow group member's
+name rendered as the generic "Member" fallback. Invisible with a
+single-member group (which is all the earlier manual/e2e testing used);
+only surfaced once `npm run seed:demo` created a real 3-person group and
+Jordan/Sam's names both came back wrong. Fixed with an additional policy,
+`profiles_select_shared_group`: a user can see the profile of anyone they
+share at least one group with — the actual privacy boundary for a
+shared-expense app, not "nobody but yourself." Multiple permissive RLS
+policies for the same action combine with OR, so this composes cleanly
+with the existing self-only policy rather than replacing it.
+
+**Draft-expense shares showed "$0.00" instead of the Confirm button — a
+fifth real bug, same root cause pattern (a legitimate `NULL` silently
+coerced away).** `getGroupDetail`'s `computed_share_cents ?? 0` was meant
+to give a sane default for a genuinely-absent share row, but a *draft*
+expense's placeholder share row (inserted the moment an equal/exact/
+weighted-mode draft is created, before anyone has confirmed anything) has
+`computed_share_cents = NULL` on purpose — nothing's been computed yet.
+Coercing that `NULL` to `0` made the UI's `your_share_cents !== null` check
+true for an unconfirmed draft, so it rendered "$0.00" instead of falling
+through to the Confirm button. Also invisible in earlier testing because
+the two personas' scenarios both used itemised mode, whose shares are
+computed at Receipt-Editor-confirm time, not at draft-creation time — only
+`npm run seed:demo`'s deliberately-included draft equal-mode expense
+("Internet — Rogers") exercised this path. Fixed by keeping the map's
+value type `number | null` end to end instead of coalescing at the first
+opportunity.
+
+Both of the last two bugs are logged here as a pattern worth naming
+explicitly: **manual/scripted testing with a single test account cannot
+catch bugs that only exist when there's a second person, or a second
+*state* (draft vs. confirmed), in the data.** The persona e2e tests proved
+the happy path end-to-end; realistic multi-user, mixed-state seed data
+proved something the happy-path tests structurally couldn't.
+
 **Auto-flow implementation**: the guide's §5 note says service-role
 writes-on-behalf-of-many-users belongs in Route Handlers/cron jobs. For the
 split-confirmation auto-flow specifically, chose a `SECURITY DEFINER`

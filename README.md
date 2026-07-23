@@ -60,8 +60,36 @@ Sign up with any email/password (email confirmation is disabled for local
 dev — `supabase/config.toml`'s `enable_confirmations = false` — so sign-up
 logs you in immediately, no inbox needed).
 
+**To see every screen populated with realistic data** instead of empty
+states, seed a demo account:
+
+```bash
+npm run seed:demo
+```
+
+This creates three real accounts through Supabase's actual authentication
+system (`auth.admin.createUser` — genuine sign-ups with real password
+hashes, not rows faked into `profiles`), then populates ~4 months of
+personal transactions, budgets (including a working rollover example),
+recurring rules, and a 3-person "Apartment 4B" group with a mix of
+confirmed/draft, equal/itemised split-mode expenses and a partial
+settlement — so Dashboard, Ledger, Analytics, and Split Studio all have
+something real to show immediately.
+
+```
+Email:    demo@ledgr.app
+Password: DemoPass123!
+```
+
+(Two more accounts, `demo.jordan@ledgr.app` / `demo.sam@ledgr.app`, same
+password, exist only to give the demo group real multi-person balances —
+you don't need to sign into them.) Safe to re-run any time; it looks up
+existing accounts instead of erroring, and inserts a fresh batch of sample
+data each run.
+
 **To reset the local database** (re-applies every migration + seed data
-from scratch): `supabase db reset`.
+from scratch — you'll need to re-run `npm run seed:demo` afterward too
+since it wipes `auth.users`): `supabase db reset`.
 
 **To inspect the database visually**: Supabase Studio at
 `http://127.0.0.1:54323` once `supabase start` is running.

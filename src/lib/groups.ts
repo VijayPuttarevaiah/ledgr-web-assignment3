@@ -44,9 +44,13 @@ export async function getGroupDetail(supabase: SupabaseClient<Database>, groupId
     (b) => b.groupId === groupId
   );
 
-  const yourShareByExpense = new Map<string, number>();
+  // A draft expense's placeholder share row has computed_share_cents = NULL
+  // (nothing computed yet) — that must stay null here too, not get
+  // coerced to 0, or the UI shows "$0.00" instead of the Confirm button
+  // for a draft the current user hasn't confirmed yet.
+  const yourShareByExpense = new Map<string, number | null>();
   for (const s of shares ?? []) {
-    if (s.user_id === userId) yourShareByExpense.set(s.group_expense_id, s.computed_share_cents ?? 0);
+    if (s.user_id === userId) yourShareByExpense.set(s.group_expense_id, s.computed_share_cents);
   }
 
   return {
