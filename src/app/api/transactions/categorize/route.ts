@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       categoryName = typeof parsed.category === "string" ? parsed.category : null;
       confidence = typeof parsed.confidence === "number" ? Math.max(0, Math.min(100, Math.round(parsed.confidence))) : 0;
     } catch {
-      logger.warn("Failed to parse Claude categorization response as JSON", { route: "categorize" });
+      logger.warn({ route: "categorize" }, "Failed to parse Claude categorization response as JSON");
     }
 
     const match = categories.find((c) => c.name.toLowerCase() === categoryName?.toLowerCase());

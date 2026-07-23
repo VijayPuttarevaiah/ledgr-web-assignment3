@@ -2,7 +2,7 @@ import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/ui/empty-state";
-import { LedgerTable } from "@/components/ledger/ledger-table";
+import { LedgerTable, type TransactionRow } from "@/components/ledger/ledger-table";
 import { formatCentsSigned } from "@/lib/money";
 
 const FILTERS = [
@@ -98,7 +98,7 @@ export default async function LedgerPage({
         />
       ) : (
         <>
-          <LedgerTable transactions={transactions} categories={categories ?? []} filter={filter} />
+          <LedgerTable transactions={transactions as unknown as TransactionRow[]} categories={categories ?? []} filter={filter} />
           <div className="mt-4 flex items-center justify-between text-xs text-text-faint">
             <span>
               Showing {from + 1}–{Math.min(from + PAGE_SIZE, total)} of {total}

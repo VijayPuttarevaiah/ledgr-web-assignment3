@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      logger.warn("Receipt OCR: model response was not valid JSON", { route: "receipts/parse" });
+      logger.warn({ route: "receipts/parse" }, "Receipt OCR: model response was not valid JSON");
       await logAIUsage(user.id, "ocr", model, 0.003);
       return NextResponse.json({ enabled: true, success: false, receipt_image_path: path });
     }

@@ -63,8 +63,8 @@ export function resolveAIFeatureFlags(
   const secret = hasRequiredSecret(feature, env);
   if (!secret.ok) {
     log.warn(
-      `${FEATURE_FLAG_ENV[feature]}=true but ${secret.missingVar} is missing — ${feature} disabled`,
-      { feature, missingVar: secret.missingVar }
+      { feature, missingVar: secret.missingVar },
+      `${FEATURE_FLAG_ENV[feature]}=true but ${secret.missingVar} is missing — ${feature} disabled`
     );
     return { enabled: false, reason: `${FEATURE_LABEL[feature]} isn't configured right now.` };
   }
@@ -95,8 +95,8 @@ export async function resolveAIFeature(
     const spend = await deps.getMonthlySpendUsd();
     if (spend >= capUsd) {
       log.warn(
-        `AI monthly budget of $${capUsd} reached (spent $${spend.toFixed(2)}) — all AI features disabled for the remainder of the month`,
-        { feature, capUsd, spend }
+        { feature, capUsd, spend },
+        `AI monthly budget of $${capUsd} reached (spent $${spend.toFixed(2)}) — all AI features disabled for the remainder of the month`
       );
       return {
         enabled: false,

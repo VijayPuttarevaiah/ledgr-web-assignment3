@@ -644,6 +644,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_invite_preview: {
+        Args: { p_token: string }
+        Returns: {
+          email: string
+          expires_at: string
+          group_name: string
+          invited_by_name: string
+          status: string
+        }[]
+      }
       is_expense_group_member: {
         Args: { p_group_expense_id: string }
         Returns: boolean

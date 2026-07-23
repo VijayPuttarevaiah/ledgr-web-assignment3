@@ -11,7 +11,7 @@ import { useToast } from "@/components/providers/toast-context";
 import { useConfirm } from "@/components/providers/confirm-context";
 import type { Category } from "@/types/domain";
 
-interface TransactionRow {
+export interface TransactionRow {
   id: string;
   occurred_on: string;
   description: string;
@@ -47,7 +47,11 @@ export function LedgerTable({
   function toggleOne(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }

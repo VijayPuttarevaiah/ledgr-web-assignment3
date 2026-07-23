@@ -77,13 +77,13 @@ export async function checkRateLimit(
     const rl = getUpstashLimiter(bucket, limit, windowSeconds);
     const result = await rl.limit(identifier);
     if (!result.success) {
-      logger.warn(`Rate limit exceeded for ${bucket}`, { bucket, identifier });
+      logger.warn({ bucket, identifier }, "Rate limit exceeded");
     }
     return { success: result.success, remaining: result.remaining, reset: result.reset };
   }
   const result = checkMemoryLimit(`${bucket}:${identifier}`, limit, windowSeconds);
   if (!result.success) {
-    logger.warn(`Rate limit exceeded for ${bucket} (in-memory limiter)`, { bucket, identifier });
+    logger.warn({ bucket, identifier }, "Rate limit exceeded (in-memory limiter)");
   }
   return result;
 }

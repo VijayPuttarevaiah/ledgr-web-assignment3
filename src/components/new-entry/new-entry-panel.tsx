@@ -52,13 +52,13 @@ export function NewEntryPanel({
   // [AI] category suggestion — entry point doesn't exist in the DOM at all when the flag is off (§4.4).
   useEffect(() => {
     if (!aiClientFlags.categorization) return;
-    const trimmed = description.trim();
-    if (trimmed.length < 3 || !amount) {
-      setAiSuggestion(null);
-      return;
-    }
-    const key = `${trimmed}:${amount}`;
     const timer = setTimeout(async () => {
+      const trimmed = description.trim();
+      if (trimmed.length < 3 || !amount) {
+        setAiSuggestion(null);
+        return;
+      }
+      const key = `${trimmed}:${amount}`;
       if (suggestionRequested.current === key) return;
       suggestionRequested.current = key;
       try {

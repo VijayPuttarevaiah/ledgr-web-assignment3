@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/api/auth";
 import { jsonError, Errors } from "@/lib/api/errors";
 import { updateTransactionSchema } from "@/lib/validation/transactions";
+import type { TablesUpdate } from "@/types/database";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -10,7 +11,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const body = await request.json();
     const input = updateTransactionSchema.parse(body);
 
-    const patch: Record<string, unknown> = {};
+    const patch: TablesUpdate<"transactions"> = {};
     if (input.type !== undefined) patch.type = input.type;
     if (input.amount_cents !== undefined) patch.amount_cents = input.amount_cents;
     if (input.description !== undefined) patch.description = input.description;

@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
  */
 export default function RouteError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console -- client-side fallback logging; server errors go through pino (src/lib/logger.ts)
     console.error("LEDGR route error:", error);
   }, [error]);
 
