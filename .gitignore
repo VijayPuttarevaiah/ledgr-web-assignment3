@@ -35,8 +35,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — .env.local IS committed for this project on purpose: it only
+# contains the fixed, well-known local Supabase demo credentials (see
+# README.md/DECISIONS.md), which have zero value outside your own machine's
+# Docker containers. Any *real* secret must never be added to this file
+# without renaming it to something still covered by the .env* pattern below.
 .env*
+!.env.local
 
 # vercel
 .vercel
