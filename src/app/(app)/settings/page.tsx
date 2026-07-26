@@ -1,11 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/api/session";
 import { SettingsClient } from "@/components/settings/settings-client";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser(supabase);
   if (!user) return null;
 
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();

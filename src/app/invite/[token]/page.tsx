@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/api/session";
 import { AcceptInviteClient } from "./accept-invite-client";
 
 interface InvitePreview {
@@ -12,9 +13,7 @@ interface InvitePreview {
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser(supabase);
   const { data } = await supabase.rpc("get_invite_preview", { p_token: token }).maybeSingle();
   const preview = data as InvitePreview | null;
 

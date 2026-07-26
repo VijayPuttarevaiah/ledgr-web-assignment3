@@ -1,0 +1,63 @@
+================================================================
+BEFORE — application-side aggregation: fetch every row, sum in Node
+================================================================
+                              QUERY PLAN                               
+-----------------------------------------------------------------------
+ Seq Scan on transactions (actual time=0.015..0.779 rows=4091 loops=1)
+   Filter: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+   Rows Removed by Filter: 30
+   Buffers: shared hit=76
+ Planning:
+   Buffers: shared hit=171 read=1
+ Planning Time: 0.499 ms
+ Execution Time: 0.924 ms
+(8 rows)
+
+
+================================================================
+AFTER — aggregate pushed into Postgres, served by the covering index
+================================================================
+                                 QUERY PLAN                                  
+-----------------------------------------------------------------------------
+ Aggregate (actual time=0.388..0.388 rows=1 loops=1)
+   Buffers: shared hit=76
+   ->  Seq Scan on transactions (actual time=0.002..0.174 rows=4091 loops=1)
+         Filter: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+         Rows Removed by Filter: 30
+         Buffers: shared hit=76
+ Planning:
+   Buffers: shared hit=7
+ Planning Time: 0.072 ms
+ Execution Time: 0.411 ms
+(10 rows)
+
+
+================================================================
+CONTROL — same aggregate with the new covering index disabled
+================================================================
+BEGIN
+DROP INDEX
+                                 QUERY PLAN                                  
+-----------------------------------------------------------------------------
+ Aggregate (actual time=0.490..0.490 rows=1 loops=1)
+   Buffers: shared hit=76
+   ->  Seq Scan on transactions (actual time=0.004..0.233 rows=4091 loops=1)
+         Filter: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+         Rows Removed by Filter: 30
+         Buffers: shared hit=76
+ Planning:
+   Buffers: shared hit=5
+ Planning Time: 0.048 ms
+ Execution Time: 0.502 ms
+(10 rows)
+
+ROLLBACK
+
+================================================================
+Row count for the load-test account
+================================================================
+ transactions_for_demo_user 
+----------------------------
+                       4091
+(1 row)
+

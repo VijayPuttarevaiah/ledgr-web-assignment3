@@ -3,6 +3,8 @@ import { requireUser } from "@/lib/api/auth";
 import { jsonError, Errors } from "@/lib/api/errors";
 import { createTransactionSchema, transactionsQuerySchema } from "@/lib/validation/transactions";
 import { logger } from "@/lib/logger";
+import { getTransactionTotals, invalidateTransactionTotals } from "@/lib/api/transaction-summary";
+import { invalidateAnalyticsSummary } from "@/lib/api/analytics-cache";
 
 const DUPLICATE_TOLERANCE_CENTS = 100;
 
@@ -31,21 +33,25 @@ export async function GET(request: Request) {
     const { data, error, count } = await builder.range(fromIdx, toIdx);
     if (error) throw Errors.internal();
 
-    const { data: summaryRows, error: summaryError } = await supabase
-      .from("transactions")
-      .select("type, amount_cents")
-      .eq("user_id", user.id);
-    if (summaryError) throw Errors.internal();
-
-    const income = summaryRows.filter((t) => t.type === "income").reduce((a, t) => a + t.amount_cents, 0);
-    const expenses = summaryRows.filter((t) => t.type === "expense").reduce((a, t) => a + t.amount_cents, 0);
+    // Assignment 3 §2: the summary used to be computed by selecting every
+    // one of this user's transactions and reducing the array here. That was
+    // both expensive (42 KB of JSON per request on the load-test account,
+    // growing with their history) and wrong (PostgREST caps the response at
+    // db-max-rows, so the totals silently stopped at 1,000 rows). It is now
+    // a cached call to the transaction_totals() aggregate.
+    const totals = await getTransactionTotals(supabase, user.id);
 
     return NextResponse.json({
       transactions: data,
       page: query.page,
       pageSize: query.pageSize,
       total: count ?? 0,
-      summary: { income_cents: income, expenses_cents: expenses, net_cents: income - expenses, count: summaryRows.length },
+      summary: {
+        income_cents: totals.income_cents,
+        expenses_cents: totals.expense_cents,
+        net_cents: totals.income_cents - totals.expense_cents,
+        count: totals.tx_count,
+      },
     });
   } catch (error) {
     return jsonError(error, "GET /api/transactions");
@@ -122,6 +128,11 @@ export async function POST(request: Request) {
       .select("*, category:categories(id, name, color, icon)")
       .single();
     if (error) throw Errors.internal();
+
+    // The user's lifetime totals just changed; drop their cached aggregate
+    // so the next read recomputes instead of showing a pre-insert figure.
+    invalidateTransactionTotals(user.id);
+    invalidateAnalyticsSummary(user.id);
 
     return NextResponse.json({ transaction: data }, { status: 201 });
   } catch (error) {

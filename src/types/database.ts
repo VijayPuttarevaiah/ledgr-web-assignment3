@@ -601,6 +601,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // Assignment 3 §2 — aggregate pushdown (migration 20260726000001).
+      // Added by hand rather than regenerated so the change is reviewable
+      // alongside the migration that introduced it.
+      transaction_totals: {
+        Args: { p_from?: string | null; p_to?: string | null }
+        Returns: {
+          income_cents: number
+          expense_cents: number
+          tx_count: number
+        }[]
+      }
       accept_group_invite: {
         Args: { p_token: string }
         Returns: {

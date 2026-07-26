@@ -1,0 +1,38 @@
+# Assignment 3 §5 — Prometheus scrape configuration.
+global:
+  # 5 s rather than the 15 s default: a JMeter scenario only runs for two to
+  # three minutes, and at 15 s a rate() window barely has enough points to
+  # draw the ramp-up. 5 s keeps the load-test shape visible in Grafana.
+  scrape_interval: 5s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: ledgr-assignment3
+
+rule_files:
+  - /etc/prometheus/alert-rules.yml
+
+scrape_configs:
+  # The application itself: HTTP latency histogram, request/error counters,
+  # and prom-client's default process collectors (CPU seconds, resident
+  # memory, heap, event-loop lag) for the Node process serving Ledgr.
+  - job_name: ledgr-app
+    metrics_path: /api/metrics
+    static_configs:
+      - targets: ["host.docker.internal:3100"]
+        labels:
+          service: ledgr
+          env: local
+
+  # Host-level CPU, memory, disk and network, for the resource-utilisation
+  # panels. Kept as a separate job so an application restart never looks
+  # like a host outage on the dashboard.
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels:
+          service: host
+          env: local
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

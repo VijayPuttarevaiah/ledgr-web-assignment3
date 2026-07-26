@@ -1,0 +1,241 @@
+Assignment 3 — server-side optimisation 2 evidence
+Generated: 2026-07-26 22:24:42Z
+Load-test account: cfa869ff-9506-4da6-bf7c-d69c801bb122
+
+===========================================================================
+PART A — the round-trip the application pays (PostgREST over HTTP)
+===========================================================================
+
+--- BEFORE: fetch every transaction row and sum them in the application ---
+  attempt 1: 42158 bytes, 0.015470 s
+  attempt 2: 42158 bytes, 0.002664 s
+  attempt 3: 42158 bytes, 0.002559 s
+  attempt 4: 42158 bytes, 0.002389 s
+  attempt 5: 42158 bytes, 0.002406 s
+  attempt 6: 42106 bytes, 0.002868 s
+  attempt 7: 42106 bytes, 0.002798 s
+  attempt 8: 42106 bytes, 0.004178 s
+  rows returned: 1000
+  income/expense totals computed from them (cents): 12786812 5962588
+
+--- AFTER: call transaction_totals(); Postgres computes the aggregate ---
+  attempt 1: 68 bytes, 0.018232 s
+  attempt 2: 68 bytes, 0.013825 s
+  attempt 3: 68 bytes, 0.014331 s
+  attempt 4: 68 bytes, 0.013230 s
+  attempt 5: 68 bytes, 0.011535 s
+  attempt 6: 68 bytes, 0.011727 s
+  attempt 7: 68 bytes, 0.011705 s
+  attempt 8: 68 bytes, 0.011667 s
+  response body: [{"income_cents":57807405,"expense_cents":23814605,"tx_count":4091}]
+
+  NOTE: compare the two totals above. PostgREST enforces a server-side
+  row cap (db-max-rows, 1000 by default on a local Supabase stack), so
+  'fetch everything and add it up in Node' silently stops at the cap.
+  For any account with more history than that, the summary the old code
+  displayed was not merely expensive to compute — it was wrong. The
+  aggregate always sees every row because it never leaves the database.
+
+===========================================================================
+PART B — what the composite index does to the ledger's paginated read
+===========================================================================
+Pager usage is off.
+
+Indexes currently on public.transactions:
+                indexname                 
+------------------------------------------
+ transactions_pkey
+ transactions_recurring_once_per_day_uidx
+ transactions_source_expense_idx
+ transactions_user_category_idx
+ transactions_user_date_idx
+ transactions_user_ledger_idx
+(6 rows)
+
+
+--- B1. AFTER: with transactions_user_ledger_idx (user_id, occurred_on desc, created_at desc) ---
+page 1 (limit 20 offset 0):
+                                                   QUERY PLAN                                                   
+----------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.007..0.045 rows=20 loops=1)
+   Buffers: shared hit=8
+   ->  Index Scan using transactions_user_ledger_idx on transactions (actual time=0.007..0.044 rows=20 loops=1)
+         Index Cond: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+         Buffers: shared hit=8
+ Planning:
+   Buffers: shared hit=239
+ Planning Time: 0.161 ms
+ Execution Time: 0.052 ms
+(9 rows)
+
+
+page 101 (limit 20 offset 2000):
+                                                    QUERY PLAN                                                    
+------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.730..0.734 rows=20 loops=1)
+   Buffers: shared hit=1952
+   ->  Index Scan using transactions_user_ledger_idx on transactions (actual time=0.003..0.698 rows=2020 loops=1)
+         Index Cond: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+         Buffers: shared hit=1952
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.019 ms
+ Execution Time: 0.739 ms
+(9 rows)
+
+
+--- B2. BEFORE: same two queries with the new index dropped (rolled back) ---
+BEGIN
+DROP INDEX
+page 1 (limit 20 offset 0):
+                                                     QUERY PLAN                                                     
+--------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.083..0.085 rows=20 loops=1)
+   Buffers: shared hit=21
+   ->  Incremental Sort (actual time=0.083..0.084 rows=20 loops=1)
+         Sort Key: occurred_on DESC, created_at DESC
+         Presorted Key: occurred_on
+         Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 30kB  Peak Memory: 30kB
+         Buffers: shared hit=21
+         ->  Index Scan using transactions_user_date_idx on transactions (actual time=0.058..0.061 rows=24 loops=1)
+               Index Cond: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+               Buffers: shared hit=12
+ Planning:
+   Buffers: shared hit=5
+ Planning Time: 0.046 ms
+ Execution Time: 0.091 ms
+(14 rows)
+
+
+page 101 (limit 20 offset 2000):
+                                    QUERY PLAN                                     
+-----------------------------------------------------------------------------------
+ Limit (actual time=1.137..1.139 rows=20 loops=1)
+   Buffers: shared hit=76
+   ->  Sort (actual time=1.060..1.105 rows=2020 loops=1)
+         Sort Key: occurred_on DESC, created_at DESC
+         Sort Method: top-N heapsort  Memory: 887kB
+         Buffers: shared hit=76
+         ->  Seq Scan on transactions (actual time=0.004..0.215 rows=4091 loops=1)
+               Filter: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+               Rows Removed by Filter: 30
+               Buffers: shared hit=76
+ Planning:
+   Buffers: shared hit=1
+ Planning Time: 0.016 ms
+ Execution Time: 1.163 ms
+(14 rows)
+
+ROLLBACK
+
+===========================================================================
+PART C - control: the index and the summary aggregate
+===========================================================================
+
+--- C1. Demo dataset: one account owns 99% of the table ---
+ rows_total | rows_for_demo_user | distinct_users 
+------------+--------------------+----------------
+       4121 |               4091 |             23
+(1 row)
+
+
+A sequential scan IS the right plan when a query needs 99% of the table.
+The index changes nothing here, and this is reported rather than hidden:
+                                 QUERY PLAN                                  
+-----------------------------------------------------------------------------
+ Aggregate (actual time=0.329..0.329 rows=1 loops=1)
+   Buffers: shared hit=76
+   ->  Seq Scan on transactions (actual time=0.003..0.145 rows=4091 loops=1)
+         Filter: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+         Rows Removed by Filter: 30
+         Buffers: shared hit=76
+ Planning:
+   Buffers: shared hit=4
+ Planning Time: 0.032 ms
+ Execution Time: 0.338 ms
+(10 rows)
+
+
+--- C2. Multi-tenant distribution, the shape a deployed instance has ---
+BEGIN
+INSERT 0 200000
+ANALYZE
+ rows_total | rows_for_demo_user | distinct_users 
+------------+--------------------+----------------
+     204121 |               4091 |             53
+(1 row)
+
+
+Aggregate at multi-tenant scale (selectivity now makes an index worthwhile):
+                                                  QUERY PLAN                                                  
+--------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=0.438..0.438 rows=1 loops=1)
+   Buffers: shared hit=83
+   ->  Bitmap Heap Scan on transactions (actual time=0.039..0.228 rows=4091 loops=1)
+         Recheck Cond: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+         Heap Blocks: exact=76
+         Buffers: shared hit=83
+         ->  Bitmap Index Scan on transactions_user_category_idx (actual time=0.033..0.033 rows=4091 loops=1)
+               Index Cond: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+               Buffers: shared hit=7
+ Planning:
+   Buffers: shared hit=11
+ Planning Time: 0.084 ms
+ Execution Time: 0.452 ms
+(13 rows)
+
+
+Ledger page 101 at multi-tenant scale, with the index:
+                                                     QUERY PLAN                                                     
+--------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=1.069..1.071 rows=20 loops=1)
+   Buffers: shared hit=83
+   ->  Sort (actual time=0.981..1.036 rows=2020 loops=1)
+         Sort Key: occurred_on DESC, created_at DESC
+         Sort Method: top-N heapsort  Memory: 887kB
+         Buffers: shared hit=83
+         ->  Bitmap Heap Scan on transactions (actual time=0.033..0.212 rows=4091 loops=1)
+               Recheck Cond: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+               Heap Blocks: exact=76
+               Buffers: shared hit=83
+               ->  Bitmap Index Scan on transactions_user_category_idx (actual time=0.030..0.030 rows=4091 loops=1)
+                     Index Cond: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+                     Buffers: shared hit=7
+ Planning:
+   Buffers: shared hit=47
+ Planning Time: 0.055 ms
+ Execution Time: 1.079 ms
+(17 rows)
+
+
+and with it dropped:
+DROP INDEX
+                                                     QUERY PLAN                                                     
+--------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=1.092..1.093 rows=20 loops=1)
+   Buffers: shared hit=83
+   ->  Sort (actual time=1.007..1.057 rows=2020 loops=1)
+         Sort Key: occurred_on DESC, created_at DESC
+         Sort Method: top-N heapsort  Memory: 887kB
+         Buffers: shared hit=83
+         ->  Bitmap Heap Scan on transactions (actual time=0.040..0.269 rows=4091 loops=1)
+               Recheck Cond: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+               Heap Blocks: exact=76
+               Buffers: shared hit=83
+               ->  Bitmap Index Scan on transactions_user_category_idx (actual time=0.033..0.033 rows=4091 loops=1)
+                     Index Cond: (user_id = 'cfa869ff-9506-4da6-bf7c-d69c801bb122'::uuid)
+                     Buffers: shared hit=7
+ Planning:
+   Buffers: shared hit=5
+ Planning Time: 0.055 ms
+ Execution Time: 1.103 ms
+(17 rows)
+
+ROLLBACK
+
+--- C3. Dataset restored: no synthetic rows survive ---
+ rows_total | synthetic_rows_remaining 
+------------+--------------------------
+       4121 |                        0
+(1 row)
+

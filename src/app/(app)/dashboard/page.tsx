@@ -2,6 +2,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { startOfMonth, subMonths, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/api/session";
 import { balancesForUser } from "@/lib/balances";
 import { effectiveBudgetCents } from "@/lib/budget-rollover";
 import { Card, CardLabel } from "@/components/ui/card";
@@ -12,15 +13,15 @@ import { Bar2 } from "@/components/dashboard/bar2";
 // §10 perf pass: recharts (~80KB gzipped) is code-split into its own chunk,
 // fetched only once the dashboard actually renders, instead of shipping in
 // every route's shared bundle. See DECISIONS.md for the measured before/after.
-const SpendingTrendChart = dynamic(() =>
-  import("@/components/dashboard/spending-trend-chart").then((m) => m.SpendingTrendChart)
-);
+//
+// Assignment 3 §2: the import now goes through @/components/charts rather
+// than straight at the component file, so Dashboard and Analytics resolve to
+// the same async chunk and the build stops emitting two copies of recharts.
+const SpendingTrendChart = dynamic(() => import("@/components/charts").then((m) => m.SpendingTrendChart));
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser(supabase);
   if (!user) return null;
 
   const sixMonthsAgo = format(startOfMonth(subMonths(new Date(), 5)), "yyyy-MM-dd");

@@ -2,19 +2,28 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { startOfMonth, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
-import { getAnalyticsSummary, type AnalyticsRange } from "@/lib/analytics";
+import { getVerifiedUser } from "@/lib/api/session";
+import type { AnalyticsRange } from "@/lib/analytics";
+import { getCachedAnalyticsSummary } from "@/lib/api/analytics-cache";
 import { Card, CardLabel } from "@/components/ui/card";
 import { Bar2 } from "@/components/dashboard/bar2";
 import { formatCents } from "@/lib/money";
-import { AiNarrativeCard } from "@/components/analytics/ai-narrative-card";
-import { BudgetManager } from "@/components/analytics/budget-manager";
 import { aiClientFlags } from "@/lib/ai/client-flags";
 
 // §10 perf pass — see the matching note in dashboard/page.tsx.
-const CashFlowChart = dynamic(() => import("@/components/analytics/cash-flow-chart").then((m) => m.CashFlowChart));
-const CategoryPieChart = dynamic(() =>
-  import("@/components/analytics/category-pie-chart").then((m) => m.CategoryPieChart)
-);
+const CashFlowChart = dynamic(() => import("@/components/charts").then((m) => m.CashFlowChart));
+const CategoryPieChart = dynamic(() => import("@/components/charts").then((m) => m.CategoryPieChart));
+
+// Assignment 3 §2 — client-side optimisation 1, continued.
+//
+// Both of these sit at the bottom of the Analytics page, below the KPI row
+// and both charts, and neither is needed to paint what a user sees first.
+// BudgetManager is a full create/edit form with its own validation and
+// category picker; AiNarrativeCard fetches a generated summary and is
+// disabled outright when the AI flags are off, in which case its code was
+// being downloaded to render nothing at all.
+const BudgetManager = dynamic(() => import("@/components/analytics/budget-manager").then((m) => m.BudgetManager));
+const AiNarrativeCard = dynamic(() => import("@/components/analytics/ai-narrative-card").then((m) => m.AiNarrativeCard));
 
 const RANGES: AnalyticsRange[] = ["1D", "1W", "1M", "3M", "1Y", "All"];
 
@@ -23,12 +32,10 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const range = (RANGES.includes(rangeParam as AnalyticsRange) ? rangeParam : "1M") as AnalyticsRange;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser(supabase);
   if (!user) return null;
 
-  const { kpis, cashFlow, categoryBreakdown, budgetHealth } = await getAnalyticsSummary(supabase, user.id, range);
+  const { kpis, cashFlow, categoryBreakdown, budgetHealth } = await getCachedAnalyticsSummary(supabase, user.id, range);
   const { data: categories } = await supabase
     .from("categories")
     .select("id, name")

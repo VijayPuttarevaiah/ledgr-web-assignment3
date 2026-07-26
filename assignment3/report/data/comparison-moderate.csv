@@ -1,0 +1,12 @@
+label,avg_before_ms,avg_after_ms,avg_change_pct,p95_before_ms,p95_after_ms,p95_change_pct,tps_before,tps_after,tps_change_pct,err_before_pct,err_after_pct,err_change_pp
+01 GET /dashboard (HTML document),97.5,95.4,-2.2,330.0,246.0,-25.5,9.27,9.38,1.2,52.55,0.0,-52.55
+02 GET JS bundle (/_next/static/chunks/*.js),3.2,6.8,112.5,10.0,29.0,190.0,73.83,131.45,78.0,0.0,0.0,0.0
+03 GET /api/analytics/summary?range=1M,53.6,3.7,-93.1,173.0,14.0,-91.9,9.28,9.39,1.2,51.98,0.0,-51.98
+04 GET /api/transactions (page 1),54.1,15.4,-71.5,172.0,48.0,-72.1,9.32,9.39,0.8,49.64,0.0,-49.64
+05 GET /ledger (HTML document),94.1,53.6,-43.0,324.0,121.0,-62.7,9.27,9.36,1.0,51.75,0.0,-51.75
+06 GET /api/transactions (page 2),54.6,16.1,-70.5,179.0,39.0,-78.2,9.29,9.26,-0.3,51.18,0.0,-51.18
+07 GET /analytics?range=3M (HTML document),98.9,45.6,-53.9,354.0,105.0,-70.3,9.25,9.26,0.1,53.17,0.0,-53.17
+08 GET /api/categories,53.9,16.6,-69.2,170.0,58.0,-65.9,9.26,9.3,0.4,48.1,0.0,-48.1
+09 GET /api/health,5.9,10.9,84.7,12.0,32.0,166.7,9.25,9.31,0.6,0.0,0.0,0.0
+TOTAL (excluding transaction roll-ups),33.7,16.0,-52.5,174.0,72.0,-58.6,146.76,204.44,39.3,22.41,0.0,-22.41
+TX01 Dashboard page load (HTML + all JS bundles),123.2,190.3,54.5,393.0,502.0,27.7,9.26,9.37,1.2,52.55,0.0,-52.55

@@ -1,0 +1,53 @@
+{
+  "label": "baseline",
+  "baseUrl": "http://localhost:3100",
+  "runs": 5,
+  "capturedAt": "2026-07-26T22:42:23.532Z",
+  "routes": {
+    "/dashboard": {
+      "initialJsKB": 1147,
+      "initialJsRequests": 15,
+      "jsKB": 1147,
+      "jsRequests": 15,
+      "totalKB": 1259,
+      "fcpMs": 52,
+      "lcpMs": 52,
+      "domContentLoadedMs": 37,
+      "loadMs": 84,
+      "longTaskMs": 0
+    },
+    "/ledger": {
+      "initialJsKB": 784,
+      "initialJsRequests": 12,
+      "jsKB": 784,
+      "jsRequests": 12,
+      "totalKB": 924,
+      "fcpMs": 44,
+      "lcpMs": 44,
+      "domContentLoadedMs": 22,
+      "loadMs": 68,
+      "longTaskMs": 0
+    },
+    "/analytics": {
+      "initialJsKB": 1184,
+      "initialJsRequests": 16,
+      "jsKB": 1184,
+      "jsRequests": 16,
+      "totalKB": 1300,
+      "fcpMs": 40,
+      "lcpMs": 40,
+      "domContentLoadedMs": 20,
+      "loadMs": 66,
+      "longTaskMs": 0
+    }
+  },
+  "navigation": {
+    "navigationBlockingRsc": 6,
+    "navigationPrefetchRsc": 14,
+    "navigationElapsedMs": 226
+  },
+  "session": {
+    "sessionJsKB": 1558,
+    "sessionJsFiles": 20
+  }
+}

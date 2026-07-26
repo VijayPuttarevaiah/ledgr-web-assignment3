@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/api/session";
+import { getTransactionTotals } from "@/lib/api/transaction-summary";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LedgerTable, type TransactionRow } from "@/components/ledger/ledger-table";
 import { formatCentsSigned } from "@/lib/money";
@@ -23,9 +25,7 @@ export default async function LedgerPage({
   const { filter = "all", page: pageParam } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser(supabase);
   if (!user) return null;
 
   let builder = supabase
@@ -43,9 +43,12 @@ export default async function LedgerPage({
   const from = (page - 1) * PAGE_SIZE;
   const { data: transactions, count } = await builder.range(from, from + PAGE_SIZE - 1);
 
-  const { data: allForSummary } = await supabase.from("transactions").select("type, amount_cents").eq("user_id", user.id);
-  const income = (allForSummary ?? []).filter((t) => t.type === "income").reduce((a, t) => a + t.amount_cents, 0);
-  const expenses = (allForSummary ?? []).filter((t) => t.type === "expense").reduce((a, t) => a + t.amount_cents, 0);
+  // Assignment 3 §2 — see the note in src/app/api/transactions/route.ts: the
+  // lifetime totals now come from a cached Postgres aggregate rather than
+  // from pulling the user's entire history into this render.
+  const totals = await getTransactionTotals(supabase, user.id);
+  const income = totals.income_cents;
+  const expenses = totals.expense_cents;
 
   const { data: categories } = await supabase
     .from("categories")

@@ -1,7 +1,34 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
+import { getCache, hashKey } from "@/lib/cache/ttl-cache";
 
 const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/forgot-password", "/reset-password", "/invite", "/auth"];
+
+/**
+ * Assignment 3 §2 — the Edge-runtime half of the session cache.
+ *
+ * Proxy runs before every page navigation and calls the Supabase Auth
+ * server, and each Server Component then verifies the session again, so a
+ * single page view cost two to three `/auth/v1/user` round-trips in the
+ * baseline. This cache removes the proxy's share of them.
+ *
+ * It is registered as a separate named instance from the one in
+ * `@/lib/api/session` rather than sharing it. Under `next start` the proxy
+ * and the route handlers turn out to share a process — the metrics endpoint
+ * reports both caches from one registry — but that is a property of this
+ * deployment target, not a guarantee: on an edge deployment the proxy runs
+ * in its own isolate with no access to the Node runtime's memory. Keeping
+ * them separate means the code behaves identically either way, and the two
+ * hit ratios can be read independently on the dashboard. Both use the same
+ * implementation, key derivation and TTL, so their security properties are
+ * identical.
+ */
+const proxySessionCache = getCache<User>({
+  name: "session-verification-proxy",
+  ttlMs: 30_000,
+  maxEntries: 5_000,
+});
 
 /**
  * Refreshes the Supabase session cookie on every navigation and redirects
@@ -34,9 +61,28 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const sessionCookies = request.cookies
+    .getAll()
+    .filter((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((cookie) => `${cookie.name}=${cookie.value}`);
+
+  let user: User | null = null;
+  if (sessionCookies.length > 0) {
+    const key = await hashKey(sessionCookies.join(";"));
+    try {
+      user = await proxySessionCache.getOrLoad(key, async () => {
+        const {
+          data: { user: verified },
+          error,
+        } = await supabase.auth.getUser();
+        if (error || !verified) throw error ?? new Error("no user in session");
+        return verified;
+      });
+    } catch {
+      user = null;
+    }
+  }
 
   const { pathname } = request.nextUrl;
   const isPublic = pathname === "/" || PUBLIC_PATHS.some((p) => pathname.startsWith(p));

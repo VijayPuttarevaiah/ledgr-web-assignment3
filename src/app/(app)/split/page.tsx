@@ -1,13 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUser } from "@/lib/api/session";
 import { getGroupDetail } from "@/lib/groups";
 import { SplitStudioClient } from "@/components/split/split-studio-client";
 
 export default async function SplitPage({ searchParams }: { searchParams: Promise<{ group?: string }> }) {
   const { group: groupId } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getVerifiedUser(supabase);
   if (!user) return null;
 
   const { data: memberships } = await supabase

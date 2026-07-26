@@ -3,6 +3,8 @@ import { requireUser } from "@/lib/api/auth";
 import { jsonError, Errors } from "@/lib/api/errors";
 import { updateTransactionSchema } from "@/lib/validation/transactions";
 import type { TablesUpdate } from "@/types/database";
+import { invalidateTransactionTotals } from "@/lib/api/transaction-summary";
+import { invalidateAnalyticsSummary } from "@/lib/api/analytics-cache";
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -29,6 +31,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (error) throw Errors.internal();
     if (!data) throw Errors.notFound("That transaction");
 
+    // Assignment 3 §2: this write changes the user's lifetime totals, so
+    // their cached aggregate is dropped rather than left to expire.
+    invalidateTransactionTotals(user.id);
+    invalidateAnalyticsSummary(user.id);
+
     return NextResponse.json({ transaction: data });
   } catch (error) {
     return jsonError(error, "PATCH /api/transactions/[id]");
@@ -46,6 +53,11 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       .eq("user_id", user.id);
     if (error) throw Errors.internal();
     if (!count) throw Errors.notFound("That transaction");
+    // Assignment 3 §2: this write changes the user's lifetime totals, so
+    // their cached aggregate is dropped rather than left to expire.
+    invalidateTransactionTotals(user.id);
+    invalidateAnalyticsSummary(user.id);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return jsonError(error, "DELETE /api/transactions/[id]");

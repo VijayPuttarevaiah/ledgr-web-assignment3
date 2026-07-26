@@ -1,0 +1,63 @@
+# Assignment 3 §5 — recording and alerting rules.
+#
+# The dashboard panels could compute these expressions inline, but pulling
+# the two that appear on several panels into recording rules keeps the
+# panel queries readable and makes the SLO thresholds explicit rather than
+# buried in a dashboard JSON blob.
+groups:
+  - name: ledgr-slo-recording
+    interval: 15s
+    rules:
+      - record: ledgr:request_rate_5m
+        expr: sum(rate(http_requests_total{job="ledgr-app"}[5m]))
+
+      - record: ledgr:error_ratio_5m
+        expr: |
+          sum(rate(http_request_errors_total{job="ledgr-app"}[5m]))
+            /
+          clamp_min(sum(rate(http_requests_total{job="ledgr-app"}[5m])), 0.001)
+
+      - record: ledgr:latency_p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{job="ledgr-app"}[5m]))
+          )
+
+  - name: ledgr-alerts
+    rules:
+      - alert: LedgrHighErrorRate
+        expr: ledgr:error_ratio_5m > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledgr is returning more than 5% errors"
+          description: "5-minute error ratio is {{ $value | humanizePercentage }}."
+
+      - alert: LedgrHighLatency
+        expr: ledgr:latency_p95_5m > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgr 95th-percentile latency above 1 s"
+          description: "p95 is {{ $value }}s over the last 5 minutes."
+
+      - alert: LedgrHighMemory
+        expr: process_resident_memory_bytes{job="ledgr-app"} > 1.5e9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ledgr resident memory above 1.5 GB"
+          description: "RSS is {{ $value | humanize1024 }}B."
+
+      - alert: LedgrDown
+        expr: up{job="ledgr-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledgr metrics endpoint is unreachable"
+          description: "Prometheus has failed to scrape /api/metrics for one minute."

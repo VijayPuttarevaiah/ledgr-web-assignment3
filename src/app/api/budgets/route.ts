@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/api/auth";
 import { jsonError, Errors } from "@/lib/api/errors";
+import { invalidateAnalyticsSummary } from "@/lib/api/analytics-cache";
 import { upsertBudgetSchema } from "@/lib/validation/budgets";
 
 export async function GET(request: Request) {
@@ -38,6 +39,10 @@ export async function POST(request: Request) {
       .select("*, category:categories(id, name, color)")
       .single();
     if (error) throw Errors.internal();
+
+    // Budget health is part of the cached analytics summary, so a budget
+    // change has to drop it too.
+    invalidateAnalyticsSummary(user.id);
 
     return NextResponse.json({ budget: data }, { status: 201 });
   } catch (error) {
