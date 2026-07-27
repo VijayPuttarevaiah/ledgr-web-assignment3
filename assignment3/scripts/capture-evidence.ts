@@ -26,18 +26,18 @@ interface Target {
 const TARGETS: Target[] = [
   { file: "zap/before/zap-full-report.html", name: "zap-report-before" },
   { file: "zap/after/zap-full-report.html", name: "zap-report-after" },
-  { file: "jmeter/results/baseline/moderate-report/index.html", name: "jmeter-dashboard-baseline-moderate", clipHeight: 1500 },
-  { file: "jmeter/results/optimized/moderate-report/index.html", name: "jmeter-dashboard-optimized-moderate", clipHeight: 1500 },
-  { file: "jmeter/results/baseline/light-report/index.html", name: "jmeter-dashboard-baseline-light", clipHeight: 1500 },
-  { file: "jmeter/results/optimized/light-report/index.html", name: "jmeter-dashboard-optimized-light", clipHeight: 1500 },
+  { file: "jmeter/results/baseline/moderate-report/index.html", name: "jmeter-dashboard-baseline-moderate", clipHeight: 1320 },
+  { file: "jmeter/results/optimized/moderate-report/index.html", name: "jmeter-dashboard-optimized-moderate", clipHeight: 1320 },
+  { file: "jmeter/results/baseline/light-report/index.html", name: "jmeter-dashboard-baseline-light", clipHeight: 1320 },
+  { file: "jmeter/results/optimized/light-report/index.html", name: "jmeter-dashboard-optimized-light", clipHeight: 1320 },
 ];
 
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true });
   const browser = await chromium.launch();
   const context = await browser.newContext({
-    viewport: { width: 1500, height: 1400 },
-    deviceScaleFactor: 2,
+    viewport: { width: 1250, height: 1250 },
+    deviceScaleFactor: 3,
   });
   const page = await context.newPage();
 
@@ -53,7 +53,7 @@ async function main() {
     await page.screenshot({
       path: resolve(OUT_DIR, `${target.name}.png`),
       fullPage: target.clipHeight === undefined,
-      ...(target.clipHeight ? { clip: { x: 0, y: 0, width: 1500, height: target.clipHeight } } : {}),
+      ...(target.clipHeight ? { clip: { x: 0, y: 0, width: 1250, height: target.clipHeight } } : {}),
     });
     console.log(`  ${target.name}.png`);
   }

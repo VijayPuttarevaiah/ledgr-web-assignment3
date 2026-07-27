@@ -23,9 +23,11 @@ from).
 ```
 assignment3/
 ├── report/
-│   ├── Ledgr-Assignment3-Report.pdf   ← the submission
+│   ├── Ledgr-Assignment3-Report.pdf   ← the submission (37 pp)
 │   ├── Ledgr-Assignment3-Report.docx
 │   ├── REPORT.md                      ← source
+│   ├── style.css                      ← print stylesheet for the PDF
+│   ├── reference.docx                 ← pandoc template; gives Word tables borders
 │   ├── data/                          ← summary + comparison CSVs, EXPLAIN output
 │   └── figures/                       ← generated charts and report screenshots
 ├── jmeter/

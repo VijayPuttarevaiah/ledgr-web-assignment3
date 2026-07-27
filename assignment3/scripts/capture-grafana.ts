@@ -57,8 +57,12 @@ async function main() {
   // comes out as empty panel chrome. A viewport tall enough to hold the
   // whole dashboard is the fix.
   const context = await browser.newContext({
-    viewport: { width: 1600, height: 3400 },
-    deviceScaleFactor: 2, // retina, so panel text stays legible in the PDF
+    // A narrower viewport at higher scale makes Grafana lay panels out larger
+    // relative to the frame, so axis labels and legends survive being shrunk
+    // to fit a page. Capturing wide-and-dense produces a technically correct
+    // screenshot that nobody can read once it is embedded.
+    viewport: { width: 1280, height: 2900 },
+    deviceScaleFactor: 3,
   });
   const page = await context.newPage();
 

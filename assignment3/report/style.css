@@ -16,9 +16,20 @@ tr:nth-child(even) td { background: #fafafa; }
 code { font-family: "SF Mono", "Menlo", monospace; font-size: 8.8pt; background: #f2f2f2; padding: 1px 3px; border-radius: 2px; }
 pre { background: #f6f6f6; border: 1px solid #ddd; border-left: 3px solid #666; padding: 8px 10px; overflow-x: auto; page-break-inside: avoid; }
 pre code { background: none; font-size: 8pt; line-height: 1.35; padding: 0; }
-img { max-width: 100%; height: auto; display: block; margin: 0.8em auto; border: 1px solid #ccc; }
+img {
+  max-width: 100%;
+  /* Cap height so a tall dashboard capture cannot span two pages. */
+  max-height: 205mm; height: auto; width: auto;
+  display: block; margin: 0.8em auto; border: 1px solid #ccc;
+}
 figcaption, p > em { color: #444; }
 blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 1em; color: #444; }
 .title { font-size: 22pt; font-weight: bold; text-align: center; margin-bottom: 0.2em; }
 .subtitle { font-size: 13pt; text-align: center; color: #444; margin-bottom: 0.4em; }
 .author, .date { text-align: center; color: #333; margin: 0.1em 0; }
+
+/* Keep a "Table N — ..." caption on the same page as the table it labels.
+   Pandoc emits the caption as its own paragraph, so without this the two
+   drift apart across a page break. */
+p:has(strong):has(+ table) { break-after: avoid; page-break-after: avoid; }
+h1, h2, h3 { break-after: avoid; }
