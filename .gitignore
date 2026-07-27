@@ -65,3 +65,7 @@ assignment3/jmeter/results/*/*.log
 
 # Assignment 3 report build artefact (regenerate with pandoc)
 assignment3/report/report-print.html
+
+# Stray JMeter log written to the repo root when the CLI is invoked from here;
+# the real run logs live beside their results under assignment3/jmeter/results/.
+jmeter.log

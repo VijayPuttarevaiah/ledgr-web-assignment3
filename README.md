@@ -5,10 +5,10 @@ of any shared expense flows automatically into their personal ledger and
 analytics — no manual reconciliation, ever. That auto-flow is the single
 feature LEDGR exists to deliver; every other feature is built to protect it.
 
-Built from [`LEDGR_BUILD_GUIDE.md`](./LEDGR_BUILD_GUIDE.md) and the original
+Built from [`LEDGR_BUILD_GUIDE.md`](./docs/LEDGR_BUILD_GUIDE.md) and the original
 UX report (personas Maya and Daniel — see `docs/RESEARCH_NOTES.md`). Design
 and every heuristic-evaluation fix are documented in
-[`DECISIONS.md`](./DECISIONS.md).
+[`docs/DECISIONS.md`](./docs/DECISIONS.md).
 
 **Live URL:** not deployed — this build runs entirely against a local
 Supabase instance by explicit choice at the start of this project (no live
@@ -165,7 +165,7 @@ tests/
 
 ## The AI kill switch
 
-Full contract in `LEDGR_BUILD_GUIDE.md` §4; implementation in
+Full contract in `docs/LEDGR_BUILD_GUIDE.md` §4; implementation in
 `src/lib/ai/kill-switch.ts`, tested in `tests/unit/kill-switch.test.ts` and
 `tests/integration/kill-switch.spec.ts`. The short version:
 
@@ -242,7 +242,7 @@ reconciliation invariant across 200 randomized runs), 10 integration (auth
 rejection, real two-account RLS cross-user isolation, the full kill-switch
 HTTP contract), 2 end-to-end (Maya's and Daniel's full persona scenarios
 from the original UX report, both run with AI off to prove graceful
-degradation). See `DECISIONS.md` for why integration/e2e tests run against
+degradation). See `docs/DECISIONS.md` for why integration/e2e tests run against
 a production build rather than `next dev`.
 
 CI (`.github/workflows/ci.yml`) runs lint, typecheck, unit tests on every
@@ -253,14 +253,14 @@ Playwright suite against a production build.
 
 ## Performance & security
 
-- **Performance**: `PERFORMANCE.md` — three client-side and two
+- **Performance**: `docs/PERFORMANCE.md` — three client-side and two
   server-side optimizations, each with a real measured before/after number
   and a reproduction method.
 - **Security**: RLS on every table, JWT-based auth via Supabase, zod
   validation as the real server-side boundary on every mutating route, a
   SAST pass (Semgrep, zero findings) and a DAST pass (OWASP ZAP baseline,
   findings fixed via `next.config.ts` security headers) — details and the
-  before/after in `DECISIONS.md`'s §9 section.
+  before/after in `docs/DECISIONS.md`'s §9 section.
 
 ---
 

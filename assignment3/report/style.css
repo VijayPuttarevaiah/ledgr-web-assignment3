@@ -17,10 +17,17 @@ code { font-family: "SF Mono", "Menlo", monospace; font-size: 8.8pt; background:
 pre { background: #f6f6f6; border: 1px solid #ddd; border-left: 3px solid #666; padding: 8px 10px; overflow-x: auto; page-break-inside: avoid; }
 pre code { background: none; font-size: 8pt; line-height: 1.35; padding: 0; }
 img {
-  max-width: 100%;
-  /* Cap height so a tall dashboard capture cannot span two pages. */
-  max-height: 205mm; height: auto; width: auto;
-  display: block; margin: 0.8em auto; border: 1px solid #ccc;
+  /* The Grafana and JMeter captures are wide landscape images. Constrained
+     to the text column they lose roughly 13% of their width for no reason —
+     nothing needs to sit beside them. Pulling them into the page margins
+     buys that width back, which is the difference between a legend value
+     being readable and being a grey smudge. */
+  max-width: calc(100% + 26mm);
+  margin-left: -13mm; margin-right: -13mm;
+  /* Cap height so a tall capture cannot span two pages. */
+  max-height: 200mm; height: auto;
+  display: block; border: 1px solid #ccc;
+  margin-top: 0.8em; margin-bottom: 0.4em;
 }
 figcaption, p > em { color: #444; }
 blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 1em; color: #444; }
