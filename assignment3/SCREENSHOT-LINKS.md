@@ -126,31 +126,28 @@ climb while you watch.
 
 ## Where the files go
 
-Save over the existing ones so the report picks them up without edits:
+The report references these exact paths. Save with these names and the
+rebuild picks them up with no edits to the source.
 
-| Screenshot | Path |
+| Your capture | Save as |
 |---|---|
-| Grafana, baseline window | `assignment3/monitoring/screenshots/dashboard-during-baseline-load-test.png` |
-| Grafana, optimised window | `assignment3/monitoring/screenshots/dashboard-during-optimized-load-test.png` |
-| Latency panel | `assignment3/monitoring/screenshots/panel-request-latency-percentiles.png` |
-| Error-rate panel | `assignment3/monitoring/screenshots/panel-error-rate-and-status-classes.png` |
-| CPU panel | `assignment3/monitoring/screenshots/panel-cpu-utilisation.png` |
-| Memory panel | `assignment3/monitoring/screenshots/panel-memory-usage.png` |
-| Prometheus targets | `assignment3/monitoring/screenshots/prometheus-targets.png` |
-| JMeter, baseline moderate | `assignment3/report/figures/jmeter-dashboard-baseline-moderate.png` |
-| JMeter, optimised moderate | `assignment3/report/figures/jmeter-dashboard-optimized-moderate.png` |
-| ZAP before | `assignment3/report/figures/zap-report-before.png` |
-| ZAP after | `assignment3/report/figures/zap-report-after.png` |
+| Grafana baseline — SLI tiles + Request latency | `assignment3/monitoring/screenshots/grafana-baseline-1-indicators-latency.png` |
+| Grafana baseline — Throughput/errors + Resource utilisation | `assignment3/monitoring/screenshots/grafana-baseline-2-throughput-resources.png` |
+| Grafana baseline — Concurrency + Event-loop + Host memory | `assignment3/monitoring/screenshots/grafana-baseline-3-concurrency.png` |
+| Grafana optimised — SLI tiles + Request latency | `assignment3/monitoring/screenshots/grafana-optimized-1-indicators-latency.png` |
+| Grafana optimised — Throughput/errors + Resource utilisation | `assignment3/monitoring/screenshots/grafana-optimized-2-throughput-resources.png` |
+| Grafana optimised — Concurrency + Event-loop + Host memory | `assignment3/monitoring/screenshots/grafana-optimized-3-concurrency.png` |
+| Prometheus targets | `assignment3/monitoring/screenshots/prometheus-targets.png` (overwrite) |
+| Prometheus alert rules | `assignment3/monitoring/screenshots/prometheus-alerts.png` (overwrite) |
 
-Then rebuild the PDF and DOCX:
+JMeter and ZAP figures are already captured and committed — nothing to do
+for those.
+
+Then verify and rebuild in one step:
 
 ```bash
-cd assignment3/report
-pandoc REPORT.md -o report-print.html --standalone --css=style.css --toc --toc-depth=2 --resource-path=.
-pandoc REPORT.md -o Ledgr-Assignment3-Report.docx --reference-doc=reference.docx --resource-path=. --toc --toc-depth=2
-cd ../..
-npx tsx assignment3/scripts/html-to-pdf.ts \
-  assignment3/report/report-print.html \
-  assignment3/report/Ledgr-Assignment3-Report.pdf
-rm assignment3/report/report-print.html
+./assignment3/scripts/check-figures.sh      # lists anything still missing
+./assignment3/scripts/rebuild-report.sh     # refuses to run if any are
 ```
+
+

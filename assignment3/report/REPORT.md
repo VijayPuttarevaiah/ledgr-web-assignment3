@@ -936,6 +936,8 @@ Figure 8 shows all three targets healthy.
 
 ![Figure 8 — Prometheus targets, all three scrape jobs up.](../monitoring/screenshots/prometheus-targets.png)
 
+![Figure 9 — The four alert rules loaded from alert-rules.yml, all inactive against a healthy service.](../monitoring/screenshots/prometheus-alerts.png)
+
 ## 8.3 The Grafana dashboard
 
 Grafana is provisioned entirely from files, with data source and dashboard
@@ -944,33 +946,41 @@ repository rather than clicked together and lost with the container. It has
 four rows: service-level indicators, request latency, throughput and errors,
 and resource utilisation.
 
-I took the screenshots **while a JMeter run was executing**, since panels on
-an idle server show flat lines and prove nothing. Figure 9 covers the
-baseline window and Figure 10 the optimised window, both of the same
-dashboard.
+I took every screenshot **while a JMeter run was executing**, since panels on
+an idle server show flat lines and prove nothing. Each run is captured in
+three vertical sections rather than one tall image, so that every panel —
+and the mean/max column beside each legend — stays readable at page size.
 
-![Figure 9 — Grafana during the baseline load test: error ratio peaking at 19.8%, p95 518 ms.](../monitoring/screenshots/dashboard-during-baseline-load-test.png)
+Figures 10 to 12 cover the **baseline** run and Figures 13 to 15 the
+**optimised** run, both of the same dashboard over the two load-test windows.
 
-![Figure 10 — Grafana during the optimised load test: no error series, p95 88 ms, higher throughput and CPU.](../monitoring/screenshots/dashboard-during-optimized-load-test.png)
+![Figure 10 — Baseline run: service-level indicators and request latency. Error rate 0.00% at the cursor but climbing through the window; p95 peaks at 518.750 ms.](../monitoring/screenshots/grafana-baseline-1-indicators-latency.png)
 
-Read together these tell the story of §6 independently of JMeter. In Figure 9
-the error-ratio series climbs to 19.8% and p95 reaches 518 ms while the
-process holds around 24% of a core. In Figure 10 the error-rate panel reads
-"No data", which is not a broken panel but the correct rendering of a counter
-never incremented, because not one 4xx or 5xx was recorded during the entire
-run. The p95 sits at 88 ms, request rate peaks above 250 req/s against
-roughly 180 before, and CPU rises to 63.7%. The server works harder and
-delivers more, which is the intended outcome.
+![Figure 11 — Baseline run: throughput, error rate by status class, and resource utilisation. The error ratio reaches 19.779% and 4xx responses peak at 29.326 req/s.](../monitoring/screenshots/grafana-baseline-2-throughput-resources.png)
 
-Figures 11 to 14 show the four required panels individually.
+![Figure 12 — Baseline run: concurrency, event-loop lag and host memory.](../monitoring/screenshots/grafana-baseline-3-concurrency.png)
 
-![Figure 11 — Request latency percentiles (p50, p95, p99, mean).](../monitoring/screenshots/panel-request-latency-percentiles.png)
+![Figure 13 — Optimised run: service-level indicators and request latency. The error-rate tile reads "No data", p95 sits at 88.094 ms.](../monitoring/screenshots/grafana-optimized-1-indicators-latency.png)
 
-![Figure 12 — Error rate and responses by status class.](../monitoring/screenshots/panel-error-rate-and-status-classes.png)
+![Figure 14 — Optimised run: throughput, errors and resource utilisation. The error panel is empty; request rate peaks above 250 req/s and CPU reaches 63.7%.](../monitoring/screenshots/grafana-optimized-2-throughput-resources.png)
 
-![Figure 13 — CPU utilisation, Ledgr process versus host.](../monitoring/screenshots/panel-cpu-utilisation.png)
+![Figure 15 — Optimised run: concurrency, event-loop lag and host memory.](../monitoring/screenshots/grafana-optimized-3-concurrency.png)
 
-![Figure 14 — Memory usage: resident set size against the V8 heap.](../monitoring/screenshots/panel-memory-usage.png)
+Read together these tell the story of §6 independently of JMeter. In Figure 11
+the error-ratio series climbs to 19.779% and 4xx responses peak at 29.326
+req/s, while CPU averages 22.3% user time. In Figure 14 the same panel is
+simply empty, and the tile in Figure 13 reads "No data" — which is not a
+broken panel but the correct rendering of a counter that was never
+incremented, because not one 4xx or 5xx was recorded during the entire run.
+Meanwhile request rate peaks above 250 req/s against roughly 180 before, and
+CPU rises from a 22.3% mean to 27.1% with a 63.7% peak. The server works
+harder and delivers more, which is the intended outcome.
+
+Figures 12 and 15 support the saturation argument in §6.3. Event-loop lag in
+the baseline sits on a raised plateau around 10 ms for the whole run, whereas
+the optimised run holds a lower floor and spikes only under peak concurrency
+— the signature of work being removed from the loop rather than merely
+arriving later.
 
 One deployment note. On macOS, Docker Desktop runs containers inside a Linux
 VM, so node-exporter reports that VM rather than macOS itself. The
