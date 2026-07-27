@@ -1,0 +1,84 @@
+env:
+  contexts:
+    - name: ledgr
+      urls:
+        - "http://host.docker.internal:3100"
+      includePaths:
+        - "http://host.docker.internal:3100.*"
+      excludePaths:
+        - "http://host.docker.internal:3100/_next/static/.*"
+        - "http://host.docker.internal:3100/api/metrics.*"
+  parameters:
+    failOnError: false
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: replacer
+    parameters:
+      deleteAllRules: true
+    rules:
+      - description: "Authenticated session captured by npm run capture:session"
+        matchType: req_header
+        matchString: Cookie
+        matchRegex: false
+        replacementString: "sb-127-auth-token=base64-eyJhY2Nlc3NfdG9rZW4iOiJleUpoYkdjaU9pSkZVekkxTmlJc0ltdHBaQ0k2SW1JNE1USTJPV1l4TFRJeFpEZ3ROR1l5WlMxaU56RTVMV015TWpRd1lUZzBNR1E1TUNJc0luUjVjQ0k2SWtwWFZDSjkuZXlKcGMzTWlPaUpvZEhSd09pOHZNVEkzTGpBdU1DNHhPalUwTXpJeEwyRjFkR2d2ZGpFaUxDSnpkV0lpT2lKalptRTROamxtWmkwNU5UQTJMVFJrWVRZdFltWTNZeTFrTmpsak9EQXhZbUl4TWpJaUxDSmhkV1FpT2lKaGRYUm9aVzUwYVdOaGRHVmtJaXdpWlhod0lqb3hOemcxTVRFek5EYzVMQ0pwWVhRaU9qRTNPRFV4TURrNE56a3NJbVZ0WVdsc0lqb2laR1Z0YjBCc1pXUm5jaTVoY0hBaUxDSndhRzl1WlNJNklpSXNJbUZ3Y0Y5dFpYUmhaR0YwWVNJNmV5SndjbTkyYVdSbGNpSTZJbVZ0WVdsc0lpd2ljSEp2ZG1sa1pYSnpJanBiSW1WdFlXbHNJbDE5TENKMWMyVnlYMjFsZEdGa1lYUmhJanA3SW1WdFlXbHNYM1psY21sbWFXVmtJanAwY25WbExDSm1kV3hzWDI1aGJXVWlPaUpOWVhsaElFTm9aVzRpZlN3aWNtOXNaU0k2SW1GMWRHaGxiblJwWTJGMFpXUWlMQ0poWVd3aU9pSmhZV3d4SWl3aVlXMXlJanBiZXlKdFpYUm9iMlFpT2lKd1lYTnpkMjl5WkNJc0luUnBiV1Z6ZEdGdGNDSTZNVGM0TlRFd09UZzNPWDFkTENKelpYTnphVzl1WDJsa0lqb2lPREEwTW1NeFkySXROMlZtWWkwME5tSmtMVGt6TmpZdE1qYzROMkUwWVRGbU5HWTRJaXdpYVhOZllXNXZibmx0YjNWeklqcG1ZV3h6WlgwLldkODZhVnlmeW9WSzFaTmF1ZFJDck03QW1tTTF2d3NRS3FDWUVmSFVLQ0pCcjNYZDhtdmRUc1Rpa2dKVHdrYTJQSUpIc1lqTldOZnA2WE1LSWMtcWhBIiwidG9rZW5fdHlwZSI6ImJlYXJlciIsImV4cGlyZXNfaW4iOjM2MDAsImV4cGlyZXNfYXQiOjE3ODUxMTM0NzksInJlZnJlc2hfdG9rZW4iOiJ4ZXZwdzJmNWFzZHoiLCJ1c2VyIjp7ImlkIjoiY2ZhODY5ZmYtOTUwNi00ZGE2LWJmN2MtZDY5YzgwMWJiMTIyIiwiYXVkIjoiYXV0aGVudGljYXRlZCIsInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiZW1haWwiOiJkZW1vQGxlZGdyLmFwcCIsImVtYWlsX2NvbmZpcm1lZF9hdCI6IjIwMjYtMDctMjNUMDk6MDk6NTcuNjc3ODk4WiIsInBob25lIjoiIiwiY29uZmlybWVkX2F0IjoiMjAyNi0wNy0yM1QwOTowOTo1Ny42Nzc4OThaIiwibGFzdF9zaWduX2luX2F0IjoiMjAyNi0wNy0yNlQyMzo1MToxOS45MTU3NzAwODVaIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWxfdmVyaWZpZWQiOnRydWUsImZ1bGxfbmFtZSI6Ik1heWEgQ2hlbiJ9LCJpZGVudGl0aWVzIjpbeyJpZGVudGl0eV9pZCI6IjAwZGMwYjY0LWE1ODUtNGEyYS1iMDg4LWNhYmJiNjZlOTlhNyIsImlkIjoiY2ZhODY5ZmYtOTUwNi00ZGE2LWJmN2MtZDY5YzgwMWJiMTIyIiwidXNlcl9pZCI6ImNmYTg2OWZmLTk1MDYtNGRhNi1iZjdjLWQ2OWM4MDFiYjEyMiIsImlkZW50aXR5X2RhdGEiOnsiZW1haWwiOiJkZW1vQGxlZGdyLmFwcCIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwicGhvbmVfdmVyaWZpZWQiOmZhbHNlLCJzdWIiOiJjZmE4NjlmZi05NTA2LTRkYTYtYmY3Yy1kNjljODAxYmIxMjIifSwicHJvdmlkZXIiOiJlbWFpbCIsImxhc3Rfc2lnbl9pbl9hdCI6IjIwMjYtMDctMjNUMDk6MDk6NTcuNjY5OTgxWiIsImNyZWF0ZWRfYXQiOiIyMDI2LTA3LTIzVDA5OjA5OjU3LjY3MDAyMloiLCJ1cGRhdGVkX2F0IjoiMjAyNi0wNy0yM1QwOTowOTo1Ny42NzAwMjJaIiwiZW1haWwiOiJkZW1vQGxlZGdyLmFwcCJ9XSwiY3JlYXRlZF9hdCI6IjIwMjYtMDctMjNUMDk6MDk6NTcuNjYyNzUyWiIsInVwZGF0ZWRfYXQiOiIyMDI2LTA3LTI2VDIzOjUxOjE5LjkxOTQ3N1oiLCJpc19hbm9ueW1vdXMiOmZhbHNlfSwid2Vha19wYXNzd29yZCI6bnVsbH0"
+        tokenProcessing: false
+
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 25
+      scanOnlyInScope: true
+    rules:
+      # Reads every line of every response looking for TODO/FIXME comments.
+      # Harmless on HTML, pathological on multi-hundred-kilobyte bundles.
+      - id: 10027
+        threshold: "off"
+
+  - type: spider
+    parameters:
+      context: ledgr
+      maxDuration: 3
+      maxDepth: 10
+      numberOfThreads: 5
+
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+
+  - type: activeScan
+    parameters:
+      context: ledgr
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 20
+      threadPerHost: 4
+    policyDefinition:
+      defaultStrength: medium
+      defaultThreshold: medium
+      rules:
+        - id: 40026
+          name: "Cross Site Scripting (DOM Based)"
+          strength: "off"
+          threshold: "off"
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk
+      reportFile: zap-full-report.html
+      reportTitle: "Ledgr — OWASP ZAP full scan (after)"
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk
+      reportFile: zap-full-report.json
+  - type: report
+    parameters:
+      template: traditional-md
+      reportDir: /zap/wrk
+      reportFile: zap-full-report.md
+  - type: report
+    parameters:
+      template: traditional-xml
+      reportDir: /zap/wrk
+      reportFile: zap-full-report.xml

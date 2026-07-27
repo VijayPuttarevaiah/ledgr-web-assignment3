@@ -6,6 +6,17 @@ import { createClient } from "@/lib/supabase/client";
 import { FieldLabel, Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+/**
+ * Assignment 3 §4 — rendered per request rather than prerendered at build
+ * time, so that the page Next.js serves is generated under the same
+ * per-request Content Security Policy that src/proxy.ts sets on the
+ * response. A statically prerendered page is one fixed .html file produced
+ * before any nonce exists, which makes it impossible to reason about
+ * nonce-bearing directives on these routes. They are trivial to render, so
+ * the cost of doing it per request is negligible.
+ */
+export const dynamic = "force-dynamic";
+
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");

@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 import { getCache, hashKey } from "@/lib/cache/ttl-cache";
+import { buildDocumentCsp, generateNonce } from "@/lib/security/csp";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const isDev = process.env.NODE_ENV === "development";
 
 const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/forgot-password", "/reset-password", "/invite", "/auth"];
 
@@ -38,7 +42,25 @@ const proxySessionCache = getCache<User>({
  * (a matcher change here must never become a silent auth bypass elsewhere).
  */
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  // Assignment 3 §4 — remediation of ZAP alert 10055 (Medium, CWE-693).
+  //
+  // A fresh nonce per response, placed on the *request* headers as well as
+  // the response. Next.js looks for a `nonce-` value in the incoming
+  // Content-Security-Policy header and, when it finds one, stamps that same
+  // nonce onto every script tag it generates — its runtime bootstrap and
+  // the React Server Component flight payload included. That is what allows
+  // script-src to drop 'unsafe-inline': the browser now executes the
+  // handful of inline scripts the framework vouched for, and refuses any
+  // other inline script, which is the one that would have been injected.
+  const nonce = generateNonce();
+  const documentCsp = buildDocumentCsp(nonce, { supabaseUrl, isDev });
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", documentCsp);
+
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", documentCsp);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,7 +74,13 @@ export async function proxy(request: NextRequest) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          response = NextResponse.next({ request });
+          // Rebuilding the response here would silently drop both the nonce
+          // request header and the CSP response header set above, and the
+          // policy would simply go missing on exactly those requests where
+          // Supabase rotated the session cookie — an intermittent hole that
+          // a single-request scan would very likely never catch.
+          response = NextResponse.next({ request: { headers: requestHeaders } });
+          response.headers.set("Content-Security-Policy", documentCsp);
           for (const { name, value, options } of cookiesToSet) {
             response.cookies.set(name, value, options);
           }
@@ -97,18 +125,48 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  /**
+   * Assignment 3 §4 — remediation of ZAP alerts 10044 ("Big Redirect
+   * Detected", Low, CWE-201) and 10019 ("Content-Type Header Missing",
+   * Informational).
+   *
+   * A redirect built here carries no body and no CSP unless one is put on
+   * it. Redirecting through a Server Component's `redirect()` instead
+   * produced a full HTML document alongside the 307, which is what ZAP
+   * flagged: a redirect that also ships a response body may leak whatever
+   * is in that body to a client that was about to be sent elsewhere.
+   * Redirecting in the proxy gives a bodyless response, and the headers are
+   * attached explicitly so the policy does not go missing on this path.
+   */
+  const redirectTo = (url: URL) => {
+    const redirect = NextResponse.redirect(url);
+    redirect.headers.set("Content-Security-Policy", documentCsp);
+    redirect.headers.set("Content-Type", "text/plain; charset=utf-8");
+    return redirect;
+  };
+
+  // `/` used to fall through to a Server Component whose only job was to
+  // call redirect(); doing it here removes a full page render from the
+  // hottest possible entry point as well as removing the oversized body.
+  if (pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = user ? "/dashboard" : "/sign-in";
+    url.search = "";
+    return redirectTo(url);
+  }
+
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
     url.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(url);
+    return redirectTo(url);
   }
 
   if (user && (pathname === "/sign-in" || pathname === "/sign-up")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";
-    return NextResponse.redirect(url);
+    return redirectTo(url);
   }
 
   return response;

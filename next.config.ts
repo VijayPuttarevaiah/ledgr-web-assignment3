@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { buildNonDocumentCsp } from "./src/lib/security/csp";
 
 // §9 / DAST pass (DECISIONS.md #security-headers): OWASP ZAP's baseline
 // scan against a production build flagged missing X-Content-Type-Options,
@@ -15,23 +16,26 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 // what was actually verified.
 const isDev = process.env.NODE_ENV === "development";
 
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  // Next.js injects hydration/runtime scripts inline; a nonce-based CSP
-  // would remove the need for 'unsafe-inline' here but is a larger change
-  // than this pass covers — tracked as a documented follow-up, not silently
-  // dropped.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  `connect-src 'self' ${supabaseUrl}`,
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-]
-  .join("; ")
-  .trim();
+// Assignment 3 §4 — remediation of ZAP alerts 10055 ("CSP: script-src
+// unsafe-inline" and "CSP: style-src unsafe-inline", both Medium, CWE-693).
+//
+// The previous pass shipped 'unsafe-inline' in both directives, with a note
+// admitting that a nonce-based policy was the real answer. 'unsafe-inline'
+// in script-src is close to not having a script CSP at all: it tells the
+// browser to execute any inline <script> it is handed, which is exactly the
+// payload an injected-HTML XSS delivers.
+//
+// The policy is now split in two, both built in src/lib/security/csp.ts:
+//
+//   - HTML documents get a per-request nonce policy, set in src/proxy.ts.
+//   - Everything the proxy does not run on — API JSON under /api and static
+//     assets under /_next — gets script-src 'none' and style-src 'none'
+//     here, because nothing in those responses is ever executed.
+//
+// The two `headers()` entries below are scoped so that exactly one CSP
+// applies to any given path: no catch-all rule sets a document policy that
+// the proxy would then have to fight with.
+const nonDocumentCsp = buildNonDocumentCsp({ supabaseUrl, isDev });
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -74,14 +78,26 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Applies everywhere. These four say nothing about scripts, so they
+        // are the same for documents and for data.
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-          { key: "Content-Security-Policy", value: contentSecurityPolicy },
         ],
+      },
+      {
+        // Route handlers: the proxy matcher deliberately skips /api for
+        // latency reasons, so the CSP for these responses is set here.
+        source: "/api/:path*",
+        headers: [{ key: "Content-Security-Policy", value: nonDocumentCsp }],
+      },
+      {
+        // Build output. Also skipped by the proxy matcher.
+        source: "/_next/:path*",
+        headers: [{ key: "Content-Security-Policy", value: nonDocumentCsp }],
       },
     ];
   },

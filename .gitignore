@@ -62,3 +62,6 @@ assignment3/jmeter/session.properties
 assignment3/jmeter/results/*/light-report/
 assignment3/jmeter/results/*/moderate-report/
 assignment3/jmeter/results/*/*.log
+
+# Assignment 3 report build artefact (regenerate with pandoc)
+assignment3/report/report-print.html

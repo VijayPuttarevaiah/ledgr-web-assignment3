@@ -18,7 +18,8 @@
     "seed:loadtest": "tsx assignment3/scripts/seed-load-test-data.ts",
     "capture:session": "tsx assignment3/scripts/capture-session.ts",
     "measure:client": "tsx assignment3/scripts/measure-client.ts",
-    "capture:grafana": "tsx assignment3/scripts/capture-grafana.ts"
+    "capture:grafana": "tsx assignment3/scripts/capture-grafana.ts",
+    "capture:evidence": "tsx assignment3/scripts/capture-evidence.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.113.0",
