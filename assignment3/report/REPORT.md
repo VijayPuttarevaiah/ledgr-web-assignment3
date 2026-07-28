@@ -946,6 +946,27 @@ repository rather than clicked together and lost with the container. It has
 four rows: service-level indicators, request latency, throughput and errors,
 and resource utilisation.
 
+The assignment names four metrics the dashboard must cover. Table 12 maps
+each to the panel that answers it, the query behind that panel, and the
+figure it appears in, so none of the four has to be inferred from a
+composite screenshot.
+
+**Table 12 — The four required metrics and the panels carrying them**
+
+| Required metric | Dashboard panel | Query | Shown in |
+|---|---|---|---|
+| CPU utilisation | CPU utilisation — Ledgr process vs host | `rate(process_cpu_seconds_total{job="ledgr-app"}[1m]) * 100` | Figures 11, 14 |
+| Memory usage | Memory usage — Ledgr process | `process_resident_memory_bytes{job="ledgr-app"}` | Figures 11, 14 |
+| Request latency | Request latency percentiles (all routes) | `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[1m])))` | Figures 10, 13 |
+| Error rate | Error rate and responses by status class | `sum(rate(http_request_errors_total[1m])) / clamp_min(sum(rate(http_requests_total[1m])), 0.001)` | Figures 11, 14 |
+
+The CPU panel plots the Ledgr process against the host so the two can be
+told apart, and separates user from system time. The memory panel plots
+resident set size against the V8 heap, because RSS climbing while heap-used
+stays flat points at native or buffer allocation rather than a JavaScript
+leak. Beyond these four the dashboard also carries throughput by route,
+requests in flight, event-loop lag and per-cache hit ratios.
+
 I took every screenshot **while a JMeter run was executing**, since panels on
 an idle server show flat lines and prove nothing. Each run is captured in
 three vertical sections rather than one tall image, so that every panel —
