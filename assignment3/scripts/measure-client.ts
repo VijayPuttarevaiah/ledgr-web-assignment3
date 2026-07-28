@@ -41,6 +41,22 @@ const EMAIL = arg("email", "demo@ledgr.app");
 const PASSWORD = arg("password", "DemoPass123!");
 const LABEL = arg("label", "baseline");
 const RUNS = Number(arg("runs", "5"));
+/**
+ * Simulate a real network and a mid-range device.
+ *
+ * Over loopback on an M4 the pages already paint in under 100 ms, so bundle
+ * size is not the binding constraint and a before/after on FCP measures
+ * nothing but noise. That is a property of the measuring environment, not
+ * of the application: on any real connection the JavaScript has to arrive
+ * before it can run. Throttling to a 4G-class link and a 4x CPU slowdown
+ * puts the measurement back in the regime where payload size governs paint,
+ * which is the regime actual users are in.
+ *
+ * Figures follow Chrome DevTools' "Fast 4G" preset.
+ */
+const THROTTLE = args.includes("--throttle");
+const NETWORK = { downloadThroughput: (9 * 1024 * 1024) / 8, uploadThroughput: (1.5 * 1024 * 1024) / 8, latency: 85 };
+const CPU_SLOWDOWN = 4;
 const OUT_DIR = resolve(__dirname, "..", "report", "data");
 
 const ROUTES = ["/dashboard", "/ledger", "/analytics"];
@@ -94,6 +110,13 @@ async function collectPaintMetrics(page: Page): Promise<PaintMetrics> {
 async function measureRoute(browser: Browser, storageState: StorageState, route: string): Promise<RouteSample> {
   const context = await browser.newContext({ storageState });
   const page = await context.newPage();
+
+  if (THROTTLE) {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Network.enable");
+    await cdp.send("Network.emulateNetworkConditions", { offline: false, ...NETWORK });
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_SLOWDOWN });
+  }
 
   // LCP and longtask entries are not retained in the performance timeline
   // the way paint entries are - `getEntriesByType` returns an empty list for
@@ -150,8 +173,9 @@ async function measureRoute(browser: Browser, storageState: StorageState, route:
   });
 
   await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle" });
-  // Give LCP and any post-hydration long tasks a moment to settle.
-  await page.waitForTimeout(1200);
+  // Give LCP and any post-hydration long tasks a moment to settle. Under
+  // throttling everything lands later, so the window has to be wider.
+  await page.waitForTimeout(THROTTLE ? 3000 : 1200);
   const paint = await collectPaintMetrics(page);
 
   await context.close();
@@ -220,6 +244,23 @@ async function measureSession(browser: Browser, storageState: StorageState) {
   const context = await browser.newContext({ storageState });
   const page = await context.newPage();
 
+  if (THROTTLE) {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("Network.enable");
+    await cdp.send("Network.emulateNetworkConditions", { offline: false, ...NETWORK });
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_SLOWDOWN });
+  }
+
+  await page.addInitScript(() => {
+    const store = { lcp: 0 };
+    (window as unknown as { __perf: typeof store }).__perf = store;
+    try {
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) store.lcp = Math.max(store.lcp, entry.startTime);
+      }).observe({ type: "largest-contentful-paint", buffered: true });
+    } catch { /* metric simply comes back as 0 */ }
+  });
+
   const seen = new Map<string, number>();
   page.on("response", async (response) => {
     const url = new URL(response.url());
@@ -233,14 +274,35 @@ async function measureSession(browser: Browser, storageState: StorageState) {
     }
   });
 
+  // Per-hop figures, not just the session total. The shared-chunk change is
+  // invisible on a cold first page - the bundles are near-identical - and
+  // only pays off on the *second* page, where a user who already has the
+  // chart library should not download it again. That is the hop to measure.
+  const hops: Array<{ route: string; newJsKB: number; newJsFiles: number; lcpMs: number }> = [];
+
   for (const route of ROUTES) {
+    const before = new Set(seen.keys());
     await page.goto(`${BASE_URL}${route}`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(THROTTLE ? 2500 : 400);
+
+    let newBytes = 0;
+    let newFiles = 0;
+    for (const [path, size] of seen) {
+      if (!before.has(path)) {
+        newBytes += size;
+        newFiles += 1;
+      }
+    }
+    const lcp = await page.evaluate(() => {
+      const perf = (window as unknown as { __perf?: { lcp: number } }).__perf;
+      return perf ? Math.round(perf.lcp) : 0;
+    });
+    hops.push({ route, newJsKB: Math.round(newBytes / 1024), newJsFiles: newFiles, lcpMs: lcp });
   }
 
   await context.close();
   const bytes = [...seen.values()].reduce((total, size) => total + size, 0);
-  return { sessionJsKB: Math.round(bytes / 1024), sessionJsFiles: seen.size };
+  return { sessionJsKB: Math.round(bytes / 1024), sessionJsFiles: seen.size, hops };
 }
 
 function median(values: number[]): number {
@@ -253,7 +315,7 @@ async function main() {
   mkdirSync(OUT_DIR, { recursive: true });
   const browser = await chromium.launch();
   const storageState = await captureStorageState(browser);
-  console.log(`Signed in. Measuring ${ROUTES.length} routes x ${RUNS} runs (label: ${LABEL})\n`);
+  console.log(`Signed in. Measuring ${ROUTES.length} routes x ${RUNS} runs (label: ${LABEL}${THROTTLE ? ", throttled: Fast 4G + 4x CPU" : ", unthrottled"})\n`);
 
   const results: Record<string, Record<string, number>> = {};
 
@@ -287,7 +349,7 @@ async function main() {
   const session = await measureSession(browser, storageState);
   await browser.close();
 
-  const payload = { label: LABEL, baseUrl: BASE_URL, runs: RUNS, capturedAt: new Date().toISOString(), routes: results, navigation, session };
+  const payload = { label: LABEL, baseUrl: BASE_URL, runs: RUNS, throttled: THROTTLE, capturedAt: new Date().toISOString(), routes: results, navigation, session };
   const outFile = resolve(OUT_DIR, `client-metrics-${LABEL}.json`);
   writeFileSync(outFile, JSON.stringify(payload, null, 2) + "\n", "utf8");
 
@@ -302,6 +364,10 @@ async function main() {
       `${navigation.navigationPrefetchRsc} background prefetches, ${navigation.navigationElapsedMs} ms total`
   );
   console.log(`session across all three routes: ${session.sessionJsKB} KB of JS in ${session.sessionJsFiles} unique files`);
+  console.log("per-hop (new JS downloaded on arriving at each route, one warm context):");
+  for (const hop of session.hops) {
+    console.log(`   ${hop.route.padEnd(12)} +${String(hop.newJsKB).padStart(5)} KB in ${String(hop.newJsFiles).padStart(2)} files   LCP ${hop.lcpMs} ms`);
+  }
   console.log(`\nWrote ${outFile}`);
 }
 

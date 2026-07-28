@@ -1,0 +1,74 @@
+{
+  "label": "baseline-throttled",
+  "baseUrl": "http://localhost:3100",
+  "runs": 5,
+  "throttled": true,
+  "capturedAt": "2026-07-28T00:38:39.876Z",
+  "routes": {
+    "/dashboard": {
+      "initialJsKB": 1147,
+      "initialJsRequests": 15,
+      "jsKB": 1147,
+      "jsRequests": 15,
+      "totalKB": 1257,
+      "fcpMs": 352,
+      "lcpMs": 352,
+      "domContentLoadedMs": 216,
+      "loadMs": 631,
+      "longTaskMs": 113
+    },
+    "/ledger": {
+      "initialJsKB": 784,
+      "initialJsRequests": 12,
+      "jsKB": 784,
+      "jsRequests": 12,
+      "totalKB": 922,
+      "fcpMs": 352,
+      "lcpMs": 352,
+      "domContentLoadedMs": 215,
+      "loadMs": 513,
+      "longTaskMs": 0
+    },
+    "/analytics": {
+      "initialJsKB": 1184,
+      "initialJsRequests": 16,
+      "jsKB": 1184,
+      "jsRequests": 16,
+      "totalKB": 1302,
+      "fcpMs": 348,
+      "lcpMs": 348,
+      "domContentLoadedMs": 214,
+      "loadMs": 646,
+      "longTaskMs": 155
+    }
+  },
+  "navigation": {
+    "navigationBlockingRsc": 6,
+    "navigationPrefetchRsc": 18,
+    "navigationElapsedMs": 228
+  },
+  "session": {
+    "sessionJsKB": 1558,
+    "sessionJsFiles": 20,
+    "hops": [
+      {
+        "route": "/dashboard",
+        "newJsKB": 1147,
+        "newJsFiles": 15,
+        "lcpMs": 352
+      },
+      {
+        "route": "/ledger",
+        "newJsKB": 8,
+        "newJsFiles": 1,
+        "lcpMs": 132
+      },
+      {
+        "route": "/analytics",
+        "newJsKB": 403,
+        "newJsFiles": 4,
+        "lcpMs": 124
+      }
+    ]
+  }
+}

@@ -142,8 +142,8 @@ ordinary, which is the point of running it first.
 ## 3.3 Moderate load results
 
 Table 3 shows the moderate scenario, and it is a different picture entirely.
-Figure 1 is JMeter's own dashboard for the same run, which is where these
-figures come from.
+Figures 1 and 2 are JMeter's own dashboard for the same run, which is where
+these figures come from.
 
 **Table 3 — Baseline, moderate load (50 users, 60 s ramp, 26,444 samples)**
 
@@ -161,7 +161,9 @@ figures come from.
 | Dashboard load (doc + bundles) | 1,667 | 123.2 | 393 | 9.26 | **52.55** |
 | **All samples** | **26,444** | **33.7** | **174** | **146.76** | **22.41** |
 
-![Figure 1 — JMeter dashboard, baseline moderate load. APDEX 0.757, 22.41% errors.](figures/jmeter-dashboard-baseline-moderate.png)
+![Figure 1 — JMeter dashboard, baseline moderate load: APDEX 0.757 and a 22.41% failure share.](figures/jmeter-baseline-1-apdex-summary.png)
+
+![Figure 2 — Baseline moderate load, per-endpoint statistics: 26,444 samples, 5,925 failures, 33.66 ms average, 195 ms at the 95th percentile.](figures/jmeter-baseline-2-statistics.png)
 
 Roughly half of every authenticated request failed. Latency degraded too,
 with 95th percentiles roughly doubling or tripling against the light run, but
@@ -339,35 +341,68 @@ cache**. Measuring several routes in one context is the classic trap: shared
 chunks are already cached by the time the second route loads, so the second
 route looks free and the numbers mean nothing.
 
-Critically, I took this comparison with the *server-side* optimisations
+Critically, this comparison was taken with the *server-side* optimisations
 already in place on both sides, by temporarily reverting only the four
 client-side changes. Otherwise the server-side gains would have been
 misattributed to client-side work.
 
-**Table 4 — Client-side rendering metrics (medians of 5 runs)**
+Measurements were repeated under simulated network and device throttling —
+Chrome's Fast 4G profile at 9 Mbps down and 85 ms latency, with a 4× CPU
+slowdown. Over loopback on an M4 these pages already paint in under 100 ms,
+so payload size is not the binding constraint and a before/after on paint
+timing measures nothing but noise. That is a property of the measuring
+environment rather than of the application: on any real connection the
+JavaScript has to arrive before it can run.
+
+**Table 4 — Client-side metrics (medians of 5 runs)**
 
 | Metric | Before | After | Change |
 |---|---:|---:|---|
-| **Session JS, all three routes** (one context, unique files) | **1,558 KB / 20 files** | **1,174 KB / 15 files** | **−384 KB (−24.6%)** |
-| **Blocking RSC fetches**, 2 navigation laps | **6** | **2** | **−67%** |
-| `/analytics` first load, cold cache | 1,184 KB / 16 files | 1,163 KB / 14 files | −21 KB |
-| `/ledger` first load, cold cache | 784 KB / 12 files | 779 KB / 12 files | −5 KB |
+| Session JS, all three routes (unique files) | 1,558 KB / 20 files | 1,174 KB / 15 files | **−384 KB (−24.6%)** |
+| Blocking RSC fetches, 2 navigation laps | 6 | 2 | **−67%** |
 | `/dashboard` first load, cold cache | 1,147 KB / 15 files | 1,156 KB / 13 files | +9 KB |
+| `/ledger` first load, cold cache | 784 KB / 12 files | 779 KB / 12 files | −5 KB |
+| `/analytics` first load, cold cache | 1,184 KB / 16 files | 1,163 KB / 14 files | −21 KB |
 
-The two bold rows are what the optimisations targeted and both moved
-substantially. The per-route rows are close to flat, and Dashboard is 9 KB
-*worse* — that is the deliberate trade from §4.1, where Dashboard absorbs two
-extra chart components in exchange for the session-wide saving. The session
-figure is what matters for a real user, because a real user visits more than
-one page.
+The per-route rows barely move, and `/dashboard` is 9 KB *worse* — the
+deliberate trade from §4.1, where Dashboard absorbs two extra chart
+components in exchange for the session-wide saving. Measuring only cold
+first loads would therefore suggest the change did nothing.
 
-First Contentful Paint and Largest Contentful Paint landed between 40 ms and
-64 ms in both configurations, with run-to-run variation larger than the
-difference between builds. I make no claim of improvement from them. Once the
-server-side work removed the auth round-trip from the render path, these
-pages were already painting fast enough over loopback that bundle size was no
-longer the binding constraint. On a real network the 384 KB would matter
-considerably more.
+It does not, and Table 5 shows where the saving actually lands. This walks
+one throttled session through all three routes in a single browser context,
+recording what each arrival newly downloads. The first page is a cold cache
+and behaves the same either way. The third is the one that matters.
+
+**Table 5 — New JavaScript downloaded on arriving at each route (one warm session, Fast 4G + 4× CPU)**
+
+| Arrival | Before | After | Change |
+|---|---:|---:|---|
+| `/dashboard` (cold cache) | 1,147 KB in 15 files | 1,156 KB in 13 files | +9 KB |
+| `/ledger` | 8 KB in 1 file | 11 KB in 1 file | +3 KB |
+| **`/analytics`** | **403 KB in 4 files** | **7 KB in 1 file** | **−396 KB (−98.3%)** |
+
+That 403 KB is the second copy of recharts described in §4.1. A user moving
+from Dashboard to Analytics — the commonest path through the application —
+downloaded, parsed and compiled the charting library a second time, because
+the two routes reached it through different async chunks. Sharing one chunk
+removes essentially all of it: the Analytics arrival falls to a single 7 KB
+file.
+
+Largest Contentful Paint on that Analytics arrival was 124 ms before and
+132 ms after, which is within run-to-run variation and not a difference I
+would claim either way. The reason is worth stating plainly rather than
+hiding: the second copy of recharts was being fetched *after* first paint,
+as a lazily-imported chunk, so it was costing bandwidth, parse time and
+battery rather than blocking the initial render. On a metered or congested
+connection that is still 396 KB the user does not have to pay for, and on a
+slower device it is parse work that does not have to happen — but it is not
+a paint-time win, and reporting it as one would be wrong.
+
+The honest summary is that the client-side work removes a quarter of the
+JavaScript a browsing session downloads and two thirds of its blocking
+navigation fetches, with no measurable effect on first paint in either
+measuring environment.
 
 # 5. Server-side optimisations
 
@@ -472,10 +507,10 @@ alter policy transactions_select_own on public.transactions
 
 This rewrites the *predicate*, not the *rule*. Each policy still admits
 exactly the same rows for exactly the same users, which is why it is safe to
-apply everywhere at once. Table 5 gives the effect, measured as the
+apply everywhere at once. Table 6 gives the effect, measured as the
 `authenticated` role with a real JWT claim set.
 
-**Table 5 — Effect of the RLS InitPlan rewrite (4,091-row account)**
+**Table 6 — Effect of the RLS InitPlan rewrite (4,091-row account)**
 
 | Query | Before | After | Change |
 |---|---|---|---|
@@ -501,7 +536,7 @@ create index if not exists transactions_user_ledger_idx
   include (type, amount_cents);
 ```
 
-**Table 6 — Effect of the composite index (EXPLAIN ANALYZE, 4,091 rows)**
+**Table 7 — Effect of the composite index (EXPLAIN ANALYZE, 4,091 rows)**
 
 | Query | Before | After | Change |
 |---|---|---|---|
@@ -560,7 +595,7 @@ throughout use:
 
 ## 6.1 Light load
 
-**Table 7 — Light load, baseline versus optimised**
+**Table 8 — Light load, baseline versus optimised**
 
 | Endpoint | Avg before | Avg after | Δ avg | p95 before | p95 after | Δ p95 |
 |---|---:|---:|---:|---:|---:|---:|
@@ -576,7 +611,7 @@ throughout use:
 | `GET /api/health` | 6.9 ms | 10.3 ms | *+49.3%* | 13 ms | 21 ms | *+61.5%* |
 | **All samples** | **23.2 ms** | **7.2 ms** | **−69.0%** | **112 ms** | **32 ms** | **−71.4%** |
 
-![Figure 2 — Average response time by endpoint, light load.](figures/light-avg-comparison.png)
+![Figure 3 — Average response time by endpoint, light load.](figures/light-avg-comparison.png)
 
 Every authenticated endpoint improved by between 65% and 96%, and the
 gradient across those rows is itself informative.
@@ -596,7 +631,7 @@ is a genuine regression and I report it as one.
 
 ## 6.2 Moderate load
 
-**Table 8 — Moderate load, baseline versus optimised**
+**Table 9 — Moderate load, baseline versus optimised**
 
 | Endpoint | Avg before | Avg after | Δ avg | p95 before | p95 after | Δ p95 | Err before | Err after |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -612,16 +647,19 @@ is a genuine regression and I report it as one.
 | **All samples** | **33.7 ms** | **16.0 ms** | **−52.5%** | **174 ms** | **72 ms** | **−58.6%** | **22.41%** | **0%** |
 
 Throughput rose from **146.76 to 204.44 requests per second, +39.3%**, while
-the error rate fell from **22.41% to zero**. Figure 3 shows the
-95th-percentile improvement by endpoint and Figure 4 shows throughput and
-error rate together. Figure 5 is JMeter's dashboard for the optimised run,
-directly comparable with Figure 1: the pass/fail pie is entirely green.
+the error rate fell from **22.41% to zero**. Figure 4 shows the
+95th-percentile improvement by endpoint and Figure 5 shows throughput and
+error rate together. Figures 6 and 7 are JMeter's dashboard for the optimised
+run, directly comparable with Figures 1 and 2: the pass/fail pie is entirely
+green and every endpoint reports 0.00% error.
 
-![Figure 3 — 95th-percentile response time by endpoint, moderate load.](figures/moderate-p95-comparison.png)
+![Figure 4 — 95th-percentile response time by endpoint, moderate load.](figures/moderate-p95-comparison.png)
 
-![Figure 4 — Throughput and error rate, moderate load.](figures/moderate-throughput-errors.png)
+![Figure 5 — Throughput and error rate, moderate load.](figures/moderate-throughput-errors.png)
 
-![Figure 5 — JMeter dashboard, optimised moderate load. 0% errors.](figures/jmeter-dashboard-optimized-moderate.png)
+![Figure 6 — JMeter dashboard, optimised moderate load: APDEX 0.999 and no failures.](figures/jmeter-optimized-1-apdex-summary.png)
+
+![Figure 7 — Optimised moderate load, per-endpoint statistics, directly comparable with Figure 2.](figures/jmeter-optimized-2-statistics.png)
 
 ## 6.3 Analysis
 
@@ -663,7 +701,7 @@ Because I applied the optimisations together, no single JMeter row isolates
 one of them. Combining the load-test rows with the direct measurements in
 §4.3 and §5 gives the attribution in Table 9.
 
-**Table 9 — What each optimisation contributed**
+**Table 10 — What each optimisation contributed**
 
 | Optimisation | Evidence | Contribution |
 |---|---|---|
@@ -706,10 +744,10 @@ rules 40012, 40014, 40016 and 40017, all of which completed.
 ## 7.2 Findings
 
 The scan reported eight distinct alerts: three Medium, one Low and four
-Informational. Table 10 lists all of them, including those I did not fix.
-Figure 6 shows ZAP's own report.
+Informational. Table 11 lists all of them, including those I did not fix.
+Figures 7 and 8 show ZAP's own report.
 
-**Table 10 — All alerts, pre-remediation scan (26 July 2026, 23:32 UTC)**
+**Table 11 — All alerts, pre-remediation scan (26 July 2026, 23:32 UTC)**
 
 | Alert | Risk (confidence) | Instances | CWE | Rule |
 |---|---|---:|---:|---:|
@@ -722,7 +760,9 @@ Figure 6 shows ZAP's own report.
 | User Agent Fuzzer | Informational (Medium) | 3 | 0 | 10104 |
 | User Controllable HTML Element Attribute | Informational (Low) | 1 | 20 | 10031 |
 
-![Figure 6 — ZAP report before remediation: three Medium findings.](figures/zap-report-before.png)
+![Figure 8 — ZAP report before remediation: 0 High, 3 Medium, 1 Low, 4 Informational.](figures/zap-before-1-summary.png)
+
+![Figure 9 — Pre-remediation alert detail, including the CSP and reflected-input findings.](figures/zap-before-2-alerts.png)
 
 ## 7.3 Fix 1 — unvalidated input reflected into a response header
 
@@ -844,9 +884,10 @@ apply the nonce to script tags, not to build the mechanism.
 ## 7.7 Verification re-scan
 
 I re-ran the identical scan against the rebuilt application twenty minutes
-later. Table 11 compares the two and Figure 7 shows the post-fix report.
+later. Table 12 compares the two, and Figures 9 and 10 show the post-fix
+report.
 
-**Table 11 — ZAP findings before and after remediation**
+**Table 12 — ZAP findings before and after remediation**
 
 | Alert | Before | After |
 |---|---|---|
@@ -860,7 +901,9 @@ later. Table 11 compares the two and Figure 7 shows the post-fix report.
 | User Controllable HTML Element Attribute | Informational (×1) | Informational (×1) |
 | **Totals** | **3 Medium, 1 Low, 4 Info** | **1 Medium, 0 Low, 3 Info** |
 
-![Figure 7 — ZAP report after remediation: Medium findings down from three to one.](figures/zap-report-after.png)
+![Figure 10 — ZAP report after remediation: Medium findings down from three to one, Low to zero.](figures/zap-after-1-summary.png)
+
+![Figure 11 — Post-remediation alert detail, directly comparable with Figure 8.](figures/zap-after-2-alerts.png)
 
 Two Medium findings and one Low closed, confirmed by re-scan. I also verified
 the application still works under the tightened policy rather than assuming
@@ -932,11 +975,12 @@ scrape_configs:
 `alert-rules.yml` adds three recording rules and four alerts:
 `LedgrHighErrorRate` above 5% for 2 minutes, `LedgrHighLatency` with p95 over
 1 second for 2 minutes, `LedgrHighMemory` above 1.5 GB RSS, and `LedgrDown`.
-Figure 8 shows all three targets healthy.
+Figure 12 shows all three targets healthy and Figure 13 the four alert rules
+loaded and inactive against a healthy service.
 
-![Figure 8 — Prometheus targets, all three scrape jobs up.](../monitoring/screenshots/prometheus-targets.png)
+![Figure 12 — Prometheus targets, all three scrape jobs up.](../monitoring/screenshots/prometheus-targets.png)
 
-![Figure 9 — The four alert rules loaded from alert-rules.yml, all inactive against a healthy service.](../monitoring/screenshots/prometheus-alerts.png)
+![Figure 13 — The four alert rules loaded from alert-rules.yml, all inactive against a healthy service.](../monitoring/screenshots/prometheus-alerts.png)
 
 ## 8.3 The Grafana dashboard
 
@@ -946,18 +990,18 @@ repository rather than clicked together and lost with the container. It has
 four rows: service-level indicators, request latency, throughput and errors,
 and resource utilisation.
 
-The assignment names four metrics the dashboard must cover. Table 12 maps
+The assignment names four metrics the dashboard must cover. Table 13 maps
 each to the panel that answers it, the query behind that panel, and the
 figure it appears in, so none of the four has to be inferred from a
 composite screenshot.
 
-**Table 12 — The four required metrics and the panels carrying them**
+**Table 13 — The four required metrics and the panels carrying them**
 
 | Required metric | Dashboard panel | Query | Shown in |
 |---|---|---|---|
-| CPU utilisation | CPU utilisation — Ledgr process vs host | `rate(process_cpu_seconds_total{job="ledgr-app"}[1m]) * 100` | Figures 11, 14 |
+| CPU utilisation | CPU utilisation — Ledgr process vs host | `rate(process_cpu_seconds_total{job="ledgr-app"}[1m]) * 100` | Figures 15, 18 |
 | Memory usage | Memory usage — Ledgr process | `process_resident_memory_bytes{job="ledgr-app"}` | Figures 11, 14 |
-| Request latency | Request latency percentiles (all routes) | `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[1m])))` | Figures 10, 13 |
+| Request latency | Request latency percentiles (all routes) | `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[1m])))` | Figures 14, 17 |
 | Error rate | Error rate and responses by status class | `sum(rate(http_request_errors_total[1m])) / clamp_min(sum(rate(http_requests_total[1m])), 0.001)` | Figures 11, 14 |
 
 The CPU panel plots the Ledgr process against the host so the two can be
@@ -967,37 +1011,38 @@ stays flat points at native or buffer allocation rather than a JavaScript
 leak. Beyond these four the dashboard also carries throughput by route,
 requests in flight, event-loop lag and per-cache hit ratios.
 
-I took every screenshot **while a JMeter run was executing**, since panels on
-an idle server show flat lines and prove nothing. Each run is captured in
-three vertical sections rather than one tall image, so that every panel —
-and the mean/max column beside each legend — stays readable at page size.
+Every dashboard capture below was taken **while a JMeter run was executing**,
+since panels on an idle server show flat lines and demonstrate nothing. Each
+run is presented in three vertical sections rather than one tall image, so
+that every panel — and the mean and max column beside each legend — remains
+legible at page size.
 
-Figures 10 to 12 cover the **baseline** run and Figures 13 to 15 the
+Figures 14 to 16 cover the **baseline** run and Figures 17 to 19 the
 **optimised** run, both of the same dashboard over the two load-test windows.
 
-![Figure 10 — Baseline run: service-level indicators and request latency. Error rate 0.00% at the cursor but climbing through the window; p95 peaks at 518.750 ms.](../monitoring/screenshots/grafana-baseline-1-indicators-latency.png)
+![Figure 14 — Baseline run: service-level indicators and request latency. Error rate 0.00% at the cursor but climbing through the window; p95 peaks at 518.750 ms.](../monitoring/screenshots/grafana-baseline-1-indicators-latency.png)
 
-![Figure 11 — Baseline run: throughput, error rate by status class, and resource utilisation. The error ratio reaches 19.779% and 4xx responses peak at 29.326 req/s.](../monitoring/screenshots/grafana-baseline-2-throughput-resources.png)
+![Figure 15 — Baseline run: throughput, error rate by status class, and resource utilisation. The error ratio reaches 19.779% and 4xx responses peak at 29.326 req/s.](../monitoring/screenshots/grafana-baseline-2-throughput-resources.png)
 
-![Figure 12 — Baseline run: concurrency, event-loop lag and host memory.](../monitoring/screenshots/grafana-baseline-3-concurrency.png)
+![Figure 16 — Baseline run: concurrency, event-loop lag and host memory.](../monitoring/screenshots/grafana-baseline-3-concurrency.png)
 
-![Figure 13 — Optimised run: service-level indicators and request latency. The error-rate tile reads "No data", p95 sits at 88.094 ms.](../monitoring/screenshots/grafana-optimized-1-indicators-latency.png)
+![Figure 17 — Optimised run: service-level indicators and request latency. The error-rate tile reads "No data", p95 sits at 88.094 ms.](../monitoring/screenshots/grafana-optimized-1-indicators-latency.png)
 
-![Figure 14 — Optimised run: throughput, errors and resource utilisation. The error panel is empty; request rate peaks above 250 req/s and CPU reaches 63.7%.](../monitoring/screenshots/grafana-optimized-2-throughput-resources.png)
+![Figure 18 — Optimised run: throughput, errors and resource utilisation. The error panel is empty; request rate peaks above 250 req/s and CPU reaches 63.7%.](../monitoring/screenshots/grafana-optimized-2-throughput-resources.png)
 
-![Figure 15 — Optimised run: concurrency, event-loop lag and host memory.](../monitoring/screenshots/grafana-optimized-3-concurrency.png)
+![Figure 19 — Optimised run: concurrency, event-loop lag and host memory.](../monitoring/screenshots/grafana-optimized-3-concurrency.png)
 
-Read together these tell the story of §6 independently of JMeter. In Figure 11
+Read together these tell the story of §6 independently of JMeter. In Figure 15
 the error-ratio series climbs to 19.779% and 4xx responses peak at 29.326
-req/s, while CPU averages 22.3% user time. In Figure 14 the same panel is
-simply empty, and the tile in Figure 13 reads "No data" — which is not a
+req/s, while CPU averages 22.3% user time. In Figure 18 the same panel is
+simply empty, and the tile in Figure 17 reads "No data" — which is not a
 broken panel but the correct rendering of a counter that was never
 incremented, because not one 4xx or 5xx was recorded during the entire run.
 Meanwhile request rate peaks above 250 req/s against roughly 180 before, and
 CPU rises from a 22.3% mean to 27.1% with a 63.7% peak. The server works
 harder and delivers more, which is the intended outcome.
 
-Figures 12 and 15 support the saturation argument in §6.3. Event-loop lag in
+Figures 16 and 19 support the saturation argument in §6.3. Event-loop lag in
 the baseline sits on a raised plateau around 10 ms for the whole run, whereas
 the optimised run holds a lower floor and spikes only under peak concurrency
 — the signature of work being removed from the loop rather than merely

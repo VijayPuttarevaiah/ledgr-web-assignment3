@@ -40,3 +40,14 @@ blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 1em; col
    drift apart across a page break. */
 p:has(strong):has(+ table) { break-after: avoid; page-break-after: avoid; }
 h1, h2, h3 { break-after: avoid; }
+
+/* References are ranged left, not justified. A justified reference list
+   stretches the gaps around long URLs until the entries are hard to scan,
+   and IEEE style sets them flush left in any case. The selector targets the
+   paragraphs following the references heading. */
+h1#references ~ p,
+h1[id*="reference"] ~ p {
+  text-align: left;
+  text-indent: -6mm;
+  padding-left: 6mm;
+}
