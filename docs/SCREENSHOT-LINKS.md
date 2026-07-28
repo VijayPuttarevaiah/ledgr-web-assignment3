@@ -22,13 +22,13 @@ about 20% error ratio during the baseline, none at all after.
 The time range is pinned in the URL, so you will see yesterday's load test
 rather than an idle server. Do not change the range or the panels go flat.
 
-**Baseline run** (26 Jul, 19:03–19:10) → replaces `dashboard-during-baseline-load-test.png`
+**Baseline run** (26 Jul, 19:03–19:10) → save as `grafana-baseline-{1,2,3}-*.png`
 
 ```
 http://localhost:3001/d/ledgr-overview/ledgr-application-health-assignment-3?from=1785103414000&to=1785103834000&kiosk
 ```
 
-**Optimised run** (26 Jul, 19:43–19:50) → replaces `dashboard-during-optimized-load-test.png`
+**Optimised run** (26 Jul, 19:43–19:50) → save as `grafana-optimized-{1,2,3}-*.png`
 
 ```
 http://localhost:3001/d/ledgr-overview/ledgr-application-health-assignment-3?from=1785105827000&to=1785106247000&kiosk
